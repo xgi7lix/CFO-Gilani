@@ -4,946 +4,1211 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>نظام الإدارة المالية المتقدم</title>
-  <!-- الخطوط والأيقونات -->
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  <!-- مكتبة html2canvas لتحويل المحتوى لصورة (لتفاصيل المعاملات) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     :root {
-      --primary: #2C786C;
-      --secondary: #004445;
-      --accent: #FFD700;
-      --background: #f8f9fa;
-      --text: #2c3e50;
-      --positive: #28a745; /* أخضر للإيداع/السداد */
-      --negative: #dc3545; /* أحمر للدين/الخصم */
+      --primary-color: #2C786C;
+      --secondary-color: #004445;
+      --accent-color: #FFD166;
+      --light-color: #f8f9fa;
+      --dark-color: #333;
+      --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      --transition: all 0.3s ease;
     }
-    body {
-      font-family: 'Tajawal', sans-serif;
-      background: var(--background);
+
+    * {
+      box-sizing: border-box;
       margin: 0;
-      padding: 20px;
+      padding: 0;
     }
-    /* تخطيط الواجهة الرئيسية بعمودين */
-    .dashboard {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-      max-width: 800px;
+
+    body { 
+      font-family: 'Tajawal', sans-serif; 
+      background: var(--light-color); 
+      color: var(--dark-color);
+      line-height: 1.6;
+      padding: 0;
+      margin: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1400px;
       margin: 0 auto;
+      padding: 15px;
     }
-    .card {
-      background: white;
-      padding: 30px;
-      border-radius: 15px;
+
+    header {
+      background: var(--primary-color);
+      color: white;
+      padding: 15px 0;
       text-align: center;
-      cursor: pointer;
-      transition: 0.3s;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-    }
-    .card i {
-      font-size: 2.5rem;
-      color: var(--primary);
-      margin-bottom: 15px;
-    }
-    .page {
-      display: none;
-      background: white;
-      padding: 30px;
-      border-radius: 15px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      max-width: 800px;
-      margin: 20px auto;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 20px;
       position: relative;
     }
-    .back-btn {
-      background: var(--secondary);
+
+    h1 {
+      font-size: 1.5rem;
+      margin: 0;
+    }
+
+    .back-button, .back-btn {
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,0.2);
       color: white;
       border: none;
-      padding: 10px 20px;
-      border-radius: 8px;
+      padding: 5px 10px;
+      border-radius: 5px;
       cursor: pointer;
-      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      transition: var(--transition);
     }
-    .form-row {
+
+    .back-btn {
+      position: static;
+      margin: 10px 0;
+    }
+
+    .back-button i, .back-btn i {
+      margin-right: 5px;
+    }
+
+    .back-button:hover, .back-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .main-grid {
+  padding: 10px;
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, 1fr);
       gap: 15px;
       margin-bottom: 20px;
     }
-    .form-row.inline {
-      grid-template-columns: auto 1fr;
-      align-items: center;
+
+    @media (min-width: 768px) {
+      .main-grid {
+  padding: 10px;
+        grid-template-columns: repeat(3, 1fr);
+      }
     }
-    label {
-      font-weight: bold;
-    }
-    input, select {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      font-size: 16px;
-    }
-    button {
-      background: var(--primary);
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
+
+    .main-card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: var(--card-shadow);
+      padding: 20px;
+      text-align: center;
       cursor: pointer;
-      font-size: 16px;
-      transition: 0.3s;
-    }
-    button:hover {
-      opacity: 0.9;
-    }
-    .balance-item,
-    .transaction-item {
-      background: #f8f9fa;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      text-align: right;
-    }
-    .transaction-item {
+      transition: var(--transition);
+      border: 2px solid var(--primary-color);
       display: flex;
       flex-direction: column;
-      gap: 5px;
-    }
-    .notification {
-      background: linear-gradient(135deg, #e0f7fa, #b2ebf2);
-      border-left: 5px solid var(--primary);
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    #transactionsList, #debtTransactionsList {
-      margin-top: 20px;
-    }
-    .settings-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 15px;
-    }
-    /* نافذة التفاصيل (Modal) للمعاملة مع زر التحميل */
-    .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.5);
-      display: none;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
+      min-height: 120px;
     }
-    .modal-content {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      max-width: 400px;
-      width: 90%;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-      position: relative;
+
+    .main-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+      background: var(--primary-color);
+      color: white;
     }
-    .modal-close {
-      float: left;
-      cursor: pointer;
-      font-size: 18px;
-      color: var(--secondary);
+
+    .main-card:hover i {
+      color: white;
     }
-    .download-btn {
-      background: var(--accent);
-      color: var(--secondary);
-      border: none;
-      padding: 8px 16px;
-      border-radius: 5px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-    /* تنسيق قسم الديون */
-    .debt-section {
-      margin-bottom: 30px;
-    }
-    .debt-section h3 {
+
+    .main-card i {
+      font-size: 2rem;
+      color: var(--primary-color);
       margin-bottom: 10px;
+      transition: var(--transition);
     }
-    /* بطاقات العملاء */
-    .client-card {
-      background: #f8f9fa;
-      border-radius: 8px;
+
+    .main-card h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .page {
+      display: none;
+      background: white;
+      border-radius: 10px;
+      box-shadow: var(--card-shadow);
+      padding: 15px;
+      margin-top: 15px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .active-page {
+      display: block;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .page-header i {
+      margin-left: 10px;
+      color: var(--primary-color);
+    }
+
+    .settings-card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: var(--card-shadow);
+      padding: 20px;
+      margin-bottom: 15px;
+      border-left: 4px solid var(--primary-color);
+    }
+
+    .settings-card h3 {
+      color: var(--primary-color);
+      margin-bottom: 15px;
+    }
+
+    .form-row { 
+      margin-bottom: 15px; 
+    }
+
+    .form-row label { 
+      font-weight: bold; 
+      display: block; 
+      margin-bottom: 5px; 
+    }
+
+    input, select, textarea, button { 
+      width: 100%; 
+      padding: 10px; 
+      border: 1px solid #ddd; 
+      border-radius: 5px; 
+      font-size: 14px; 
+      font-family: 'Tajawal', sans-serif;
+      transition: var(--transition);
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--primary-color);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(44, 120, 108, 0.2);
+    }
+
+    button { 
+      background: var(--primary-color); 
+      color: white; 
+      cursor: pointer; 
+      margin-top: 10px; 
+      font-weight: bold; 
+      border: none;
+      transition: var(--transition);
+      padding: 12px;
+    }
+
+    button:hover { 
+      background: var(--secondary-color); 
+    }
+
+    .btn-wide {
+      display: block;
+      width: 100%;
+      margin: 10px 0;
+      text-align: right;
+      padding: 15px;
+      font-size: 1rem;
+    }
+
+    .btn-wide i {
+      margin-left: 10px;
+    }
+
+    .notification {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000; 
+      background: #28a745; 
+      color: white; 
+      padding: 10px 15px; 
+      border-radius: 5px; 
+      margin-bottom: 15px; 
+      text-align: center;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .settings-buttons { 
+      display: grid; 
+      grid-template-columns: 1fr; 
+      gap: 10px; 
+      margin-bottom: 15px; 
+    }
+
+    @media (min-width: 480px) {
+      .settings-buttons {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .balance-item {
       padding: 10px;
-      margin-bottom: 5px;
+      margin: 5px 0;
+      background: #f8f9fa;
+      border-radius: 5px;
       display: flex;
       justify-content: space-between;
-      align-items: center;
     }
-    .client-card span {
-      font-weight: bold;
+
+    /* أنماط خاصة بصفحة الديون */
+    .debt-section {
+      margin: 15px 0;
     }
-    .client-card .delete-icon {
-      cursor: pointer;
-      color: var(--negative);
-      font-size: 18px;
+    .debt-records-container {
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 5px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .debt-record {
+      padding: 10px;
+      margin: 5px 0;
+      background: #f8f9fa;
+      border-radius: 5px;
+    }
+
+    /* تحسينات للشاشات الصغيرة */
+    @media (max-width: 480px) {
+      .container {
+        padding: 10px;
+      }
+      
+      .main-card {
+        padding: 15px 10px;
+        min-height: 100px;
+      }
+      
+      .main-card i {
+        font-size: 1.5rem;
+      }
+      
+      .main-card h3 {
+        font-size: 0.9rem;
+      }
+      
+      button {
+        padding: 8px;
+      }
+    }
+
+    /* تأثير عند الضغط على الأزرار */
+    button:active {
+      transform: scale(0.98);
     }
   </style>
 </head>
 <body>
-  <!-- الصفحة الرئيسية -->
-  <div id="mainPage" class="dashboard">
-    <div class="card" onclick="showPage('balancePage')">
-      <i class="fas fa-wallet"></i>
-      <h3>كشف الحساب</h3>
+  <!-- الهيدر الرئيسي -->
+  <header id="main-header">
+    <div class="container">
+      <h1><i class="fas fa-wallet"></i> نظام الإدارة المالية المتقدم</h1>
     </div>
-    <div class="card" onclick="showPage('transferPage')">
-      <i class="fas fa-exchange-alt"></i>
-      <h3>التحويلات</h3>
+  </header>
+
+  <!-- هيدر الصفحات الفرعية -->
+  <header id="page-header" style="display:none;">
+    <button class="back-button" onclick="goBack()"><i class="fas fa-arrow-left"></i> العودة</button>
+    <h1 id="page-title"></h1>
+  </header>
+
+  <!-- المحتوى الرئيسي مع البطاقات الست -->
+  <main class="container" id="main-content">
+    <div class="main-grid">
+      <!-- بطاقة كشف الحساب -->
+      <div class="main-card" onclick="showPage('balances-page')">
+        <i class="fas fa-wallet"></i>
+        <h3>كشف الحساب</h3>
+      </div>
+      
+      <!-- بطاقة التحويلات -->
+      <div class="main-card" onclick="showPage('transfers-page')">
+        <i class="fas fa-exchange-alt"></i>
+        <h3>التحويلات</h3>
+      </div>
+      
+      <!-- بطاقة الصادر والوارد -->
+      <div class="main-card" onclick="showPage('expenses-page')">
+        <i class="fas fa-money-bill-wave"></i>
+        <h3>الصادر والوارد</h3>
+      </div>
+      
+      <!-- بطاقة المعاملات -->
+      <div class="main-card" onclick="showPage('transactions-page')">
+        <i class="fas fa-list"></i>
+        <h3>كل المعاملات</h3>
+      </div>
+      
+      <!-- بطاقة ديون العملاء -->
+      <div class="main-card" onclick="showPage('customerDebtsPage')">
+        <i class="fas fa-users"></i>
+        <h3>ديون العملاء</h3>
+      </div>
+      
+      <!-- بطاقة الإعدادات -->
+      <div class="main-card" onclick="showPage('settings-page')">
+        <i class="fas fa-cog"></i>
+        <h3>الإعدادات</h3>
+      </div>
     </div>
-    <div class="card" onclick="showPage('expensesPage')">
-      <i class="fas fa-money-check"></i>
-      <h3>الصادر والوارد</h3>
-    </div>
-    <div class="card" onclick="showPage('historyPage')">
-      <i class="fas fa-history"></i>
-      <h3>المعاملات</h3>
-    </div>
-    <div class="card" onclick="showPage('customerDebtsPage')">
-      <i class="fas fa-users"></i>
-      <h3>ديون العملاء</h3>
-    </div>
-    <div class="card" onclick="showPage('settingsPage')">
-      <i class="fas fa-cog"></i>
-      <h3>الإعدادات</h3>
-    </div>
-  </div>
+  </main>
 
   <!-- صفحة كشف الحساب -->
-  <div id="balancePage" class="page">
-    <button class="back-btn" onclick="showMain()">← رجوع</button>
-    <h2>الأرصدة الحالية</h2>
+  <div class="container page" id="balances-page">
+    <div class="page-header">
+      <i class="fas fa-wallet"></i>
+      <h2>كشف الحساب</h2>
+    </div>
     <div id="balancesList"></div>
-    <!-- عرض آخر 3 معاملات -->
-    <h3>أحدث 3 معاملات</h3>
+    <h3 style="margin-top: 20px;">أحدث المعاملات:</h3>
     <div id="recentTransactions"></div>
-    <div id="notificationContainer"></div>
   </div>
-
+  
   <!-- صفحة التحويلات -->
-  <div id="transferPage" class="page">
-    <button class="back-btn" onclick="showMain()">← رجوع</button>
-    <h2>تحويل الأموال</h2>
-    <div class="form-row">
-      <div>
-        <label>من عملة:</label>
-        <select id="fromCurrency">
-          <option value="SAR">ريال سعودي</option>
-          <option value="SDG">جنيه سوداني</option>
-          <option value="AED">درهم إماراتي</option>
-        </select>
-      </div>
-      <div>
-        <label>إلى عملة:</label>
-        <select id="toCurrency">
-          <option value="SAR">ريال سعودي</option>
-          <option value="SDG">جنيه سوداني</option>
-          <option value="AED">درهم إماراتي</option>
-        </select>
-      </div>
+  <div class="container page" id="transfers-page">
+    <div class="page-header">
+      <i class="fas fa-exchange-alt"></i>
+      <h2>التحويلات</h2>
     </div>
     <div class="form-row">
-      <div>
-        <label>المبلغ:</label>
-        <input type="number" id="transferAmount" placeholder="أدخل المبلغ" oninput="calculateConversion()">
-      </div>
+      <label>من:</label>
+      <select id="fromCurrency"></select>
     </div>
-    <div class="form-row inline">
-      <select id="conversionOperation" style="width: 20%;">
-        <option value="×">×</option>
-        <option value="÷">÷</option>
+    <div class="form-row">
+      <label>إلى:</label>
+      <select id="toCurrency"></select>
+    </div>
+    <div class="form-row">
+      <label>المبلغ:</label>
+      <input type="number" id="transferAmount" placeholder="أدخل المبلغ">
+    </div>
+    <div class="form-row">
+      <label>سعر الصرف:</label>
+      <input type="number" id="exchangeRate" placeholder="أدخل سعر الصرف" step="0.0001">
+    </div>
+    <div class="form-row">
+      <label>تعليق (اختياري):</label>
+      <input type="text" id="transferComment" placeholder="أدخل تعليقًا إذا لزم الأمر">
+    </div>
+    <button onclick="performTransfer()"><i class="fas fa-exchange-alt"></i> تنفيذ التحويل</button>
+  </div>
+  
+  <!-- صفحة الصادر والوارد -->
+  <div class="container page" id="expenses-page">
+    <div class="page-header">
+      <i class="fas fa-money-bill-wave"></i>
+      <h2>الصادر والوارد</h2>
+    </div>
+    <div class="form-row">
+      <label>الاسم:</label>
+      <input type="text" id="expensePerson" placeholder="اسم العميل أو المورد">
+    </div>
+    <div class="form-row">
+      <label>نوع العملية:</label>
+      <select id="expenseType">
+        <option value="صادر">صادر (مصروف)</option>
+        <option value="وارد">وارد (إيراد)</option>
       </select>
-      <input type="number" id="exchangeRate" step="0.0001" placeholder="أدخل السعر" oninput="calculateConversion()">
-    </div>
-    <div class="conversion-result">
-      <h4>النتيجة المتوقعة:</h4>
-      <p id="conversionPreview">0.00</p>
     </div>
     <div class="form-row">
-      <div>
-        <label>التعليق:</label>
-        <input type="text" id="transferComment" placeholder="أدخل تعليقاً">
-      </div>
+      <label>المبلغ:</label>
+      <input type="number" id="expenseAmount" placeholder="أدخل المبلغ">
     </div>
-    <button onclick="performTransfer()">تنفيذ التحويل</button>
+    <div class="form-row">
+      <label>العملة:</label>
+      <select id="expenseCurrency"></select>
+    </div>
+    <div class="form-row">
+      <label>تفاصيل:</label>
+      <textarea id="expenseDetails" placeholder="وصف العملية" rows="3"></textarea>
+    </div>
+    <button onclick="performExpense()"><i class="fas fa-check"></i> تنفيذ العملية</button>
   </div>
-
-  <!-- صفحة المصروفات (الصادر والوارد) -->
-  <div id="expensesPage" class="page">
-    <button class="back-btn" onclick="showMain()">← رجوع</button>
-    <h2>الصادر والوارد</h2>
-    <div class="form-row">
-      <div>
-        <label>اسم الشخص:</label>
-        <input type="text" id="expensePerson" placeholder="ادخل الاسم">
-      </div>
+  
+  <!-- صفحة المعاملات -->
+  <div class="container page" id="transactions-page">
+    <div class="page-header">
+      <i class="fas fa-list"></i>
+      <h2>كل المعاملات</h2>
     </div>
     <div class="form-row">
-      <div>
-        <label>نوع العملية:</label>
-        <select id="expenseType">
-          <option value="صادر">صادر (خصم)</option>
-          <option value="وارد">وارد (إضافة)</option>
-        </select>
-      </div>
+      <input type="text" id="transactionSearch" placeholder="ابحث في المعاملات..." oninput="searchTransactions()">
     </div>
-    <div class="form-row">
-      <div>
-        <label>المبلغ:</label>
-        <input type="number" id="expenseAmount" placeholder="ادخل المبلغ">
-      </div>
-    </div>
-    <div class="form-row">
-      <div>
-        <label>العملة:</label>
-        <select id="expenseCurrency">
-          <option value="SAR">ريال سعودي</option>
-          <option value="SDG">جنيه سوداني</option>
-          <option value="AED">درهم إماراتي</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div>
-        <label>التفاصيل:</label>
-        <input type="text" id="expenseDetails" placeholder="أدخل التفاصيل">
-      </div>
-    </div>
-    <button onclick="performExpense()">تنفيذ العملية</button>
+    <div id="transactionsList"></div>
   </div>
-
+  
   <!-- صفحة ديون العملاء -->
-  <div id="customerDebtsPage" class="page">
-    <button class="back-btn" onclick="showMain()">← رجوع</button>
+  <div class="container page" id="customerDebtsPage">
+    <button class="back-btn" onclick="goBack()">← رجوع</button>
     <h2>ديون العملاء</h2>
-    <!-- عرض الرصيد الإجمالي للديون (كل عملة في سطر منفصل) -->
+    <!-- عرض إجمالي الديون في خانة واحدة -->
     <div id="overallDebtSummary" class="balance-item"></div>
-    <!-- قسم الأزرار لإضافة أو إزالة عميل -->
+    <!-- أزرار إضافة وإزالة عميل -->
     <div class="debt-section">
       <button onclick="toggleAddClient()">إضافة عميل</button>
       <button onclick="toggleRemoveClient()">إزالة عميل</button>
     </div>
-    <!-- منطقة إضافة عميل (مخفية افتراضيًا) -->
+    <!-- قسم إضافة عميل -->
     <div id="addClientSection" class="debt-section" style="display:none;">
       <h3>إضافة عميل جديد</h3>
       <div class="form-row">
-        <div>
-          <label>اسم العميل:</label>
-          <input type="text" id="newClientName" placeholder="ادخل اسم العميل">
-        </div>
+        <label>اسم العميل:</label>
+        <input type="text" id="newClientName" placeholder="ادخل اسم العميل">
       </div>
       <div class="form-row">
-        <div>
-          <label>رقم الهاتف (10 أرقام):</label>
-          <input type="text" id="newClientPhone" placeholder="ادخل رقم الهاتف">
-        </div>
+        <label>رقم الهاتف:</label>
+        <input type="text" id="newClientPhone" placeholder="ادخل رقم الهاتف">
       </div>
       <div class="form-row">
-        <div>
-          <label>ملاحظة (اختياري):</label>
-          <input type="text" id="newClientNote" placeholder="ادخل ملاحظة">
-        </div>
+        <label>ملاحظة (اختياري):</label>
+        <input type="text" id="newClientNote" placeholder="ادخل ملاحظة">
       </div>
-      <button onclick="addClient()">تسجيل العميل</button>
+      <button onclick="addClientDebt()">تسجيل العميل</button>
     </div>
-    <!-- منطقة إزالة عميل (مخفية افتراضيًا) باستخدام قائمة منسدلة -->
+    <!-- قسم إزالة عميل -->
     <div id="removeClientSection" class="debt-section" style="display:none;">
       <h3>إزالة عميل</h3>
-      <select id="removeClientDropdown">
-        <!-- تملأ خيارات القائمة ديناميكيًا -->
-      </select>
+      <select id="removeClientDropdown"></select>
       <button onclick="removeClientFromDropdown()">حذف العميل</button>
     </div>
-    <!-- قائمة عرض العملاء المسجلين بشكل مفصل -->
+    <!-- قائمة العملاء المسجلين -->
     <div class="debt-section">
       <h3>العملاء المُسجّلين</h3>
       <div id="clientsListDisplay"></div>
     </div>
   </div>
 
-  <!-- صفحة تفاصيل عميل الديون -->
-  <div id="debtDetailsPage" class="page">
-    <button class="back-btn" onclick="showPage('customerDebtsPage')">← رجوع</button>
+  <!-- صفحة تفاصيل ديون العميل -->
+  <div class="container page" id="debtDetailsPage">
+    <button class="back-btn" onclick="goBack()">← رجوع</button>
     <h2>تفاصيل ديون العميل: <span id="clientDetailsName"></span></h2>
-    <!-- عرض ملخص العميل (كل عملة في سطر منفصل) -->
+    <!-- عرض إجمالي ديون العميل -->
     <div id="clientDebtSummary" class="balance-item"></div>
-    <!-- قائمة سجلات العميل -->
-    <div id="clientDebtDetails"></div>
-    <!-- نموذج لإضافة أو تعديل سجل دين للعميل -->
+    <!-- نموذج إضافة/تعديل دين -->
     <div class="form-row">
-      <div>
-        <label>نوع العملية:</label>
-        <select id="clientDebtType">
-          <option value="لك">لك (تتطلع مبلغ)</option>
-          <option value="له">له (يطلب منك مبلغ)</option>
-        </select>
-      </div>
+      <label>نوع العملية:</label>
+      <select id="clientDebtType">
+        <option value="لك">لك (تطلب منه)</option>
+        <option value="له">له (يطلب منك)</option>
+      </select>
     </div>
     <div class="form-row">
-      <div>
-        <label>المبلغ:</label>
-        <input type="number" id="clientDebtAmount" placeholder="ادخل المبلغ">
-      </div>
-      <div>
-        <label>العملة:</label>
-        <select id="clientDebtCurrency">
-          <option value="SDG">SDG</option>
-          <option value="AED">AED</option>
-          <option value="SAR">SAR</option>
-        </select>
-      </div>
+      <label>المبلغ:</label>
+      <input type="number" id="clientDebtAmount" placeholder="ادخل المبلغ">
     </div>
     <div class="form-row">
-      <div>
-        <label>التفاصيل:</label>
-        <input type="text" id="clientDebtComment" placeholder="أدخل تفاصيل مع ملاحظات">
-      </div>
+      <label>العملة:</label>
+      <select id="clientDebtCurrency"></select>
+    </div>
+    <div class="form-row">
+      <label>تفاصيل:</label>
+      <input type="text" id="clientDebtComment" placeholder="تفاصيل أو ملاحظة">
     </div>
     <button onclick="addOrUpdateClientDebt()">إضافة / تعديل الدين</button>
+    <!-- قائمة سجلات الديون -->
+    <h3 style="margin-top: 30px;">سجلات الديون</h3>
+    <div id="clientDebtDetails" class="debt-records-container"></div>
   </div>
-
-  <!-- صفحة المعاملات -->
-  <div id="historyPage" class="page">
-    <button class="back-btn" onclick="showMain()">← رجوع</button>
-    <h2>المعاملات</h2>
-    <div id="transactionsList"></div>
-    <hr>
-    <h3>معاملات الديون</h3>
-    <div id="debtTransactionsList"></div>
-  </div>
-
-  <!-- نافذة عرض تفاصيل المعاملة (Modal) مع زر تحميل الصورة -->
-  <div id="transactionModal" class="modal" onclick="closeTransactionModal()">
-    <div class="modal-content" id="modalContent" onclick="event.stopPropagation()">
-      <span class="modal-close" onclick="closeTransactionModal()">×</span>
-      <div id="modalTransactionDetails"></div>
-      <button class="download-btn" onclick="downloadTransactionDetails()">تحميل الصورة</button>
-    </div>
-  </div>
-
+  
   <!-- صفحة الإعدادات -->
-  <div id="settingsPage" class="page">
-    <button class="back-btn" onclick="showMain()">← رجوع</button>
-    <h2>الإعدادات</h2>
-    <div class="settings-row">
-      <label>عرض إشعارات المعاملات:</label>
-      <select id="showNotifications">
-        <option value="yes">نعم</option>
-        <option value="no">لا</option>
-      </select>
+  <div class="container page" id="settings-page">
+    <div class="page-header">
+      <i class="fas fa-cog"></i>
+      <h2>الإعدادات</h2>
     </div>
-    <div class="settings-row">
-      <label>تفعيل خاصية حذف المعاملة:</label>
-      <select id="enableDelete">
-        <option value="yes">نعم</option>
-        <option value="no">لا</option>
-      </select>
+    
+    <button class="btn-wide" onclick="showSettingsPage('currency-settings')">
+      <i class="fas fa-coins"></i> إدارة العملات
+    </button>
+    
+    <button class="btn-wide" onclick="showSettingsPage('balance-settings')">
+      <i class="fas fa-wallet"></i> إدارة الرصيد
+    </button>
+    
+    <button class="btn-wide" onclick="showSettingsPage('theme-settings')">
+      <i class="fas fa-moon"></i> الوضع المظلم
+    </button>
+    
+    <button class="btn-wide" onclick="showSettingsPage('language-settings')">
+      <i class="fas fa-language"></i> اللغة
+    </button>
+    
+    
+    <button class="btn-wide" onclick="showSettingsPage('guide-settings')">
+      <i class="fas fa-book"></i> دليل التطبيق
+    </button>
+    <button class="btn-wide" onclick="showSettingsPage('about-settings')">
+
+      <i class="fas fa-info-circle"></i> معلومات التطبيق
+    </button>
+  </div>
+  
+  <!-- صفحة إدارة العملات -->
+  <div class="container page" id="currency-settings-page">
+    <div class="page-header">
+      <i class="fas fa-coins"></i>
+      <h2>إدارة العملات</h2>
     </div>
-    <div class="settings-row">
-      <label>رقم المعاملة للحذف:</label>
-      <input type="text" id="deleteTransactionId" placeholder="أدخل رقم المعاملة">
-      <button onclick="deleteTransactionFromSettings()">حذف المعاملة</button>
+    
+    <div class="settings-card">
+      <h3>العملات المتاحة</h3>
+      <div class="form-row">
+        <label>اختر العملة:</label>
+        <select id="currency-select">
+          <option value="USD">دولار أمريكي (USD)</option>
+          <option value="EUR">يورو (EUR)</option>
+          <option value="GBP">جنيه إسترليني (GBP)</option>
+          <option value="SAR">ريال سعودي (SAR)</option>
+          <option value="EGP">جنيه مصري (EGP)</option>
+          <option value="SDG">جنيه سوداني (SDG)</option>
+          <option value="QAR">ريال قطري (QAR)</option>
+        </select>
+      </div>
+      <button onclick="addCurrency()"><i class="fas fa-plus"></i> إضافة العملة</button>
     </div>
-    <button onclick="saveSettings()">حفظ الإعدادات</button>
+    
+    <div class="settings-card">
+      <h3>العملات المضافة</h3>
+      <div id="active-currencies-list"></div>
+    </div>
+  </div>
+  
+  <!-- صفحة إدارة الرصيد -->
+  <div class="container page" id="balance-settings-page">
+    <div class="page-header">
+      <i class="fas fa-wallet"></i>
+      <h2>إدارة الرصيد</h2>
+    </div>
+    
+    <div class="settings-card">
+      <h3>تعديل الرصيد</h3>
+      <div class="form-row">
+        <label>اختر العملة:</label>
+        <select id="balance-currency-select"></select>
+      </div>
+      <div class="form-row">
+        <label>المبلغ الجديد:</label>
+        <input type="number" id="new-balance" placeholder="أدخل المبلغ الجديد">
+      </div>
+      <button onclick="updateBalance()"><i class="fas fa-save"></i> حفظ التغييرات</button>
+    </div>
+  </div>
+  
+  <!-- صفحة الوضع المظلم -->
+  <div class="container page" id="theme-settings-page">
+    <div class="page-header">
+      <i class="fas fa-moon"></i>
+      <h2>إعدادات الواجهة</h2>
+    </div>
+    
+    <div class="settings-card">
+      <h3>اختر المظهر</h3>
+      <div class="settings-buttons">
+        <button onclick="setTheme('light')"><i class="fas fa-sun"></i> الوضع الفاتح</button>
+        <button onclick="setTheme('dark')"><i class="fas fa-moon"></i> الوضع المظلم</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- صفحة اللغة -->
+  <div class="container page" id="language-settings-page">
+    <div class="page-header">
+      <i class="fas fa-language"></i>
+      <h2>إعدادات اللغة</h2>
+    </div>
+    
+    <div class="settings-card">
+      <h3>اختر اللغة</h3>
+      <div class="settings-buttons">
+        <button onclick="setLanguage('ar')"><i class="fas fa-language"></i> العربية</button>
+        <button onclick="setLanguage('en')"><i class="fas fa-language"></i> الإنجليزية</button>
+      </div>
+    </div>
+  </div>
+  
+  
+<!-- صفحة دليل التطبيق -->
+<div class="container page" id="guide-settings-page">
+  <div class="page-header">
+    <i class="fas fa-book"></i>
+    <h2>دليل التطبيق</h2>
+  </div>
+  <div class="settings-card">
+    <h3>طريقة استخدام التطبيق</h3>
+    <ul style="padding-right: 20px;">
+      <li>إدارة العملات من خلال قسم الإعدادات</li>
+      <li>تنفيذ التحويلات بين العملات بسعر صرف مخصص</li>
+      <li>تسجيل عمليات الصادر والوارد</li>
+      <li>إدارة ديون العملاء وتفاصيلها</li>
+      <li>عرض كشف الحساب حسب العملة</li>
+      <li>تخصيص واجهة المستخدم من خلال الوضع المظلم واللغة</li>
+    </ul>
+  </div>
+</div>
+
+<!-- صفحة معلومات التطبيق -->
+
+  <div class="container page" id="about-settings-page">
+    <div class="page-header">
+      <i class="fas fa-info-circle"></i>
+      <h2>معلومات التطبيق</h2>
+    </div>
+    
+    <div class="settings-card">
+      <h3>نظام الإدارة المالية المتقدم</h3>
+      <p><strong>نبذة عن المطور:</strong><br>Algilani Hamid Yousif Aldaw<br>مطور هاوٍ للبرمجة والتكنولوجيا.</p>
+      <p>الإصدار: 1.0.0</p>
+      <p>آخر تحديث: 2023/10/15</p>
+      <p>تم التطوير باستخدام HTML5, CSS3 و JavaScript</p>
+    </div>
+    
+    <div class="settings-card">
+      <h3>ميزات التطبيق</h3>
+      <ul style="padding-right: 20px;">
+        <li>إدارة متعددة العملات</li>
+        <li>تسجيل المعاملات المالية</li>
+        <li>إدارة ديون العملاء</li>
+        <li>واجهة مستخدم متجاوبة</li>
+        <li>إمكانية التخصيص</li>
+      </ul>
+    </div>
   </div>
 
   <script>
-    // -------------------------------
-    // 1. إعداد الأرصدة (للمعاملات العامة)
-    const balances = {
-      SAR: 0,
-      SDG: 0,
-      AED: 0
-    };
+    // البيانات الأولية مع تضمين الريال القطري تلقائيًا
+    let balances = JSON.parse(localStorage.getItem("balances") || '{"SDG":0}');
+    let currencies = JSON.parse(localStorage.getItem("currencies") || '{"SDG":"جنيه سوداني"}');
+    let transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+    let clients = JSON.parse(localStorage.getItem('clients') || '{}');
+    let transactionIdCounter = parseInt(localStorage.getItem('transactionIdCounter') || '1');
+    let currentLanguage = 'ar';
+    let currentTheme = 'light';
+    let currentDebtClient = null;
+
+    function loadData() {
+      balances = JSON.parse(localStorage.getItem('balances') || '{}');
+      currencies = JSON.parse(localStorage.getItem('currencies') || '{"SDG":"جنيه سوداني","QAR":"ريال قطري"}');
+      transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+      clients = JSON.parse(localStorage.getItem('clients') || '{}');
+      transactionIdCounter = parseInt(localStorage.getItem('transactionIdCounter') || '1');
+      const settings = JSON.parse(localStorage.getItem('settings') || '{}');
+      if (settings.theme) {
+        currentTheme = settings.theme;
+        document.documentElement.setAttribute('data-theme', settings.theme);
+      }
+      if (settings.language) currentLanguage = settings.language;
+      updateBalances(); 
+      updateCurrencySelects(); 
+      updateTransactionsUI(); 
+      updateRecentTransactions(); 
+      updateClientsListDisplay();
+      updateActiveCurrenciesList();
+      updateOverallDebtSummary();
+    }
+
+    function saveData() {
+      localStorage.setItem('balances', JSON.stringify(balances));
+      localStorage.setItem('currencies', JSON.stringify(currencies));
+      localStorage.setItem('transactions', JSON.stringify(transactions));
+      localStorage.setItem('clients', JSON.stringify(clients));
+      localStorage.setItem('transactionIdCounter', transactionIdCounter);
+      const settings = { theme: currentTheme, language: currentLanguage };
+      localStorage.setItem('settings', JSON.stringify(settings));
+    }
+
+    function showPage(pageId) {
+      document.getElementById('main-content').style.display = 'none';
+      document.getElementById('main-header').style.display = 'none';
+      document.getElementById('page-header').style.display = 'block';
+      const pageTitleEl = document.querySelector(`#${pageId} .page-header h2`);
+      document.getElementById('page-title').textContent = pageTitleEl ? pageTitleEl.textContent : '';
+      hideAllPages();
+      document.getElementById(pageId).classList.add('active-page');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showSettingsPage(pageId) {
+      document.getElementById('page-title').textContent = document.querySelector(`#${pageId}-page h2`).textContent;
+      hideAllPages();
+      document.getElementById(`${pageId}-page`).classList.add('active-page');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goBack() {
+      const currentPage = document.querySelector('.page.active-page');
+      if (currentPage && currentPage.id === 'debtDetailsPage') {
+        showPage('customerDebtsPage');
+        return;
+      }
+      hideAllPages();
+      document.getElementById('main-content').style.display = 'block';
+      document.getElementById('main-header').style.display = 'block';
+      document.getElementById('page-header').style.display = 'none';
+    }
+
+    function hideAllPages() {
+      const pages = document.querySelectorAll('.page');
+      pages.forEach(page => page.classList.remove('active-page'));
+    }
+
     function updateBalances() {
-      const balancesList = document.getElementById("balancesList");
-      balancesList.innerHTML = '';
-      for (const currency in balances) {
-        const div = document.createElement("div");
-        div.className = "balance-item";
-        div.innerHTML = `<strong>${currency}</strong>: ${balances[currency].toFixed(2)}`;
-        balancesList.appendChild(div);
-      }
-    }
-
-    // -------------------------------
-    // 2. المعاملات العامة (غير ديون العملاء)
-    const transactions = [];
-    let transactionIdCounter = 1;
-    // ترقيم المعاملة يبدأ بـ "1101" يتبعه 7 أرقام (إجمالي 11 خانة)
-    function generateTransactionId() {
-      return "1101" + String(transactionIdCounter++).padStart(7, "0");
-    }
-    function addTransaction(tx) {
-      tx.id = generateTransactionId();
-      tx.date = new Date().toLocaleString();
-      // تُضاف المعاملة في بداية القائمة لتكون الأحدث أولاً
-      transactions.unshift(tx);
-      updateNotification();
-      updateTransactionsUI();
-    }
-    function updateNotification() {
-      const notificationContainer = document.getElementById("notificationContainer");
-      const showNotificationsSetting = document.getElementById("showNotifications").value;
-      if (showNotificationsSetting === "no" || transactions.length === 0) {
-        notificationContainer.innerHTML = "";
-        return;
-      }
-      let recent = transactions.slice(0, 3);
-      let html = "";
-      recent.forEach(tx => {
-        html += `<div class="notification">
-          <strong>${tx.type.toUpperCase()}</strong><br>
-          ${tx.description}<br>
-          <small>${tx.date}</small>
-        </div>`;
-      });
-      notificationContainer.innerHTML = html;
-    }
-    function updateTransactionsUI() {
-      const transList = document.getElementById("transactionsList");
-      const debtTransList = document.getElementById("debtTransactionsList");
-      transList.innerHTML = "";
-      debtTransList.innerHTML = "";
-      if (transactions.length === 0) {
-        transList.innerHTML = "<p>لا توجد معاملات مسجلة.</p>";
-        return;
-      }
-      transactions.forEach(tx => {
-        // لا تظهر معاملات الديون في هذه القائمة
-        if (tx.type === "دين") return;
-        const txDiv = document.createElement("div");
-        txDiv.className = "transaction-item";
-        const amountColor = (tx.type === "صادر" || tx.type === "خصم") ? "var(--negative)" : "var(--positive)";
-        txDiv.innerHTML = `
-          <strong>ID: ${tx.id} - ${tx.type.toUpperCase()}</strong><br>
-          ${tx.description}<br>
-          <small>${tx.date}</small><br>
-          <p onclick="showTransactionDetails('${tx.id}')" style="cursor:pointer; color:${amountColor}">المبلغ: ${tx.amount.toFixed(2)}</p>
-          <p>${tx.comment || ""}</p>
+      const list = document.getElementById('balancesList');
+      if (!list) return;
+      list.innerHTML = '';
+      for (const [code, balance] of Object.entries(balances)) {
+        const div = document.createElement('div');
+        div.className = 'balance-item';
+        div.innerHTML = `
+          <span><strong>${currencies[code] || code}:</strong></span>
+          <span>${Number(balance).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${code}</span>
         `;
-        transList.appendChild(txDiv);
-      });
-    }
-    function showTransactionDetails(id) {
-      const tx = transactions.find(item => item.id === id);
-      if (tx) {
-        const modal = document.getElementById("transactionModal");
-        const modalContent = document.getElementById("modalTransactionDetails");
-        modalContent.innerHTML = `
-          <h3>تفاصيل المعاملة</h3>
-          <p><strong>ID:</strong> ${tx.id}</p>
-          <p><strong>النوع:</strong> ${tx.type}</p>
-          <p><strong>المبلغ:</strong> ${tx.amount.toFixed(2)} ${tx.currency}</p>
-          <p><strong>التفاصيل:</strong> ${tx.comment || "بدون تعليق"}</p>
-          <p><small>${tx.date}</small></p>
-        `;
-        modal.style.display = "flex";
+        list.appendChild(div);
       }
-    }
-    function closeTransactionModal() {
-      document.getElementById("transactionModal").style.display = "none";
-    }
-    // تحويل تفاصيل المعاملة إلى صورة وتحميلها
-    function downloadTransactionDetails() {
-      const modalContent = document.getElementById("modalContent");
-      html2canvas(modalContent).then(canvas => {
-        const link = document.createElement("a");
-        link.download = "transaction_details.png";
-        link.href = canvas.toDataURL();
-        link.click();
-      });
-    }
-
-    // -------------------------------
-    // 3. التحويل والصادر/الوارد
-    function performTransfer() {
-      const fromCurrency = document.getElementById("fromCurrency").value;
-      const toCurrency = document.getElementById("toCurrency").value;
-      const amount = parseFloat(document.getElementById("transferAmount").value) || 0;
-      const rate = parseFloat(document.getElementById("exchangeRate").value) || 0;
-      const op = document.getElementById("conversionOperation").value;
-      const comment = document.getElementById("transferComment").value.trim();
-      if (amount <= 0 || rate <= 0) {
-        alert("الرجاء إدخال مبلغ وسعر صرف صحيحين");
-        return;
-      }
-      if (!confirm(`هل أنت متأكد من تحويل ${amount.toFixed(2)} ${fromCurrency} إلى ${toCurrency}?`)) {
-        alert("تم إلغاء التحويل");
-        return;
-      }
-      if (balances[fromCurrency] < amount) {
-        alert("الرصيد غير كافٍ في الحساب لإتمام عملية التحويل");
-        return;
-      }
-      let computed = (op === "×") ? amount * rate : amount / rate;
-      balances[fromCurrency] -= amount;
-      balances[toCurrency] += computed;
-      updateBalances();
-      addTransaction({
-        type: "تحويل",
-        description: `من ${fromCurrency} إلى ${toCurrency}، مبلغ: ${amount.toFixed(2)}، بسعر صرف: ${rate} (${op})`,
-        amount: amount,
-        currency: fromCurrency,
-        comment: comment || "بدون تعليق"
-      });
-      alert("تم تنفيذ التحويل!");
-      clearTransferInputs();
-      showMain();
-    }
-    function clearTransferInputs() {
-      document.getElementById("transferAmount").value = "";
-      document.getElementById("exchangeRate").value = "";
-      document.getElementById("transferComment").value = "";
-      document.getElementById("conversionPreview").textContent = "0.00";
-    }
-    function performExpense() {
-      const person = document.getElementById("expensePerson").value.trim();
-      const expenseType = document.getElementById("expenseType").value;
-      const amount = parseFloat(document.getElementById("expenseAmount").value) || 0;
-      const currency = document.getElementById("expenseCurrency").value;
-      const details = document.getElementById("expenseDetails").value.trim();
-      if (person === "" || amount <= 0) {
-        alert("الرجاء إدخال اسم الشخص والمبلغ الصحيح");
-        return;
-      }
-      if (expenseType === "صادر" && balances[currency] < amount) {
-        alert("الرصيد غير كافٍ لإتمام عملية الصادر");
-        return;
-      }
-      if (expenseType === "صادر") {
-        balances[currency] -= amount;
-      } else {
-        balances[currency] += amount;
-      }
-      updateBalances();
-      addTransaction({
-        type: expenseType,
-        description: `${expenseType} - ${person}، مبلغ: ${amount.toFixed(2)} ${currency}`,
-        amount: amount,
-        currency: currency,
-        comment: details || "بدون تعليق"
-      });
-      alert("تم تنفيذ العملية!");
-      clearExpenseInputs();
-      showMain();
-    }
-    function clearExpenseInputs() {
-      document.getElementById("expensePerson").value = "";
-      document.getElementById("expenseAmount").value = "";
-      document.getElementById("expenseDetails").value = "";
-    }
-
-    // -------------------------------
-    // 4. إدارة الديون (قسم إدارة العملاء)
-    const clients = {};
-    // لكل عميل: { name, phone, note, summary: { SAR, SDG, AED }, details: [ { amount, currency, type, comment, date } ] }
-    function updateOverallDebtSummary() {
-      const overall = { SAR: 0, SDG: 0, AED: 0 };
-      for (const client in clients) {
-        overall.SDG += clients[client].summary.SDG;
-        overall.AED += clients[client].summary.AED;
-        overall.SAR += clients[client].summary.SAR;
-      }
-      const overallDiv = document.getElementById("overallDebtSummary");
-      overallDiv.innerHTML = `<strong>الرصيد الإجمالي للديون:</strong><br>
-         SDG: ${overall.SDG.toFixed(2)}<br>
-         AED: ${overall.AED.toFixed(2)}<br>
-         SAR: ${overall.SAR.toFixed(2)}`;
-    }
-    // إضافة عميل جديد (من خلال النموذج في قسم "إضافة عميل")
-    function addClient() {
-      const name = document.getElementById("newClientName").value.trim();
-      const phone = document.getElementById("newClientPhone").value.trim();
-      const note = document.getElementById("newClientNote").value.trim();
-      if (!name) {
-        alert("الرجاء إدخال اسم العميل");
-        return;
-      }
-      if (!/^\d{10}$/.test(phone)) {
-        alert("الرجاء إدخال رقم هاتف صحيح مكون من 10 أرقام");
-        return;
-      }
-      if (clients[name]) {
-        alert("هذا العميل موجود مسبقاً");
-        return;
-      }
-      clients[name] = {
-        name: name,
-        phone: phone,
-        note: note,
-        summary: { SAR: 0, SDG: 0, AED: 0 },
-        details: []
-      };
-      alert("تم إضافة العميل");
-      clearClientInputs();
-      updateOverallDebtSummary();
-      updateClientsListDisplay();
-      updateClientsDatalist();
-      updateRemoveClientDropdown(); // تحديث القائمة المنسدلة لإزالة العميل
-      hideSections(); // إغلاق القسم بعد الإضافة
-    }
-    function clearClientInputs() {
-      document.getElementById("newClientName").value = "";
-      document.getElementById("newClientPhone").value = "";
-      document.getElementById("newClientNote").value = "";
-    }
-    // إزالة عميل بناءً على الضغط على زر في القائمة المنسدلة
-    function removeClientFromDropdown() {
-      const dropdown = document.getElementById("removeClientDropdown");
-      const clientName = dropdown.value;
-      if (!clientName) {
-        alert("الرجاء اختيار عميل");
-        return;
-      }
-      if (!confirm(`هل أنت متأكد من حذف العميل ${clientName}?`)) return;
-      delete clients[clientName];
-      alert("تم إزالة العميل");
-      updateOverallDebtSummary();
-      updateClientsListDisplay();
-      updateClientsDatalist();
-      updateRemoveClientDropdown();
-      hideSections(); // إغلاق قسم الإزالة بعد العملية
-    }
-    // تحديث القائمة المنسدلة لإزالة العميل
-    function updateRemoveClientDropdown() {
-      const dropdown = document.getElementById("removeClientDropdown");
-      dropdown.innerHTML = "";
-      for (const client in clients) {
-        const option = document.createElement("option");
-        option.value = client;
-        option.textContent = client;
-        dropdown.appendChild(option);
-      }
-    }
-    // عرض العملاء المسجلين (بطاقات) للتفاصيل والتعديل على الديون
-    function updateClientsListDisplay() {
-      const displayDiv = document.getElementById("clientsListDisplay");
-      displayDiv.innerHTML = "";
-      const clientNames = Object.keys(clients);
-      if (clientNames.length === 0) {
-        displayDiv.innerHTML = "<p>لا يوجد عميل</p>";
-        return;
-      }
-      clientNames.forEach(client => {
-        const card = document.createElement("div");
-        card.className = "client-card";
-        card.innerHTML = `<span onclick="editClientDebt('${client}')">${client}</span>
-          <i class="fas fa-trash delete-icon" onclick="removeClientByName('${client}'); event.stopPropagation();"></i>`;
-        displayDiv.appendChild(card);
-      });
-    }
-    function updateClientsDatalist() {
-      const dataList = document.getElementById("clientsList");
-      if(dataList) {
-        dataList.innerHTML = "";
-        for (const client in clients) {
-          const option = document.createElement("option");
-          option.value = client;
-          dataList.appendChild(option);
+      const balanceCurrencySelect = document.getElementById('balance-currency-select');
+      if (balanceCurrencySelect) {
+        balanceCurrencySelect.innerHTML = '';
+        for (const code in currencies) {
+          const option = document.createElement('option');
+          option.value = code;
+          option.textContent = `${code} - ${currencies[code]}`;
+          balanceCurrencySelect.appendChild(option);
         }
       }
     }
-    // إزالة عميل من خلال النقر على أيقونة الحذف في بطاقة العميل
-    function removeClientByName(clientName) {
-      if (!confirm(`هل أنت متأكد من حذف العميل ${clientName}?`)) return;
-      delete clients[clientName];
-      alert("تم إزالة العميل");
-      updateOverallDebtSummary();
-      updateClientsListDisplay();
-      updateClientsDatalist();
-      updateRemoveClientDropdown();
-    }
-    // دالة لإخفاء أقسام إضافة/إزالة العميل بعد الانتهاء
-    function hideSections() {
-      document.getElementById("addClientSection").style.display = "none";
-      document.getElementById("removeClientSection").style.display = "none";
-    }
-    // التبديل بين عرض قسم إضافة العميل وقسم إزالة العميل
-    function toggleAddClient() {
-      document.getElementById("addClientSection").style.display = "block";
-      document.getElementById("removeClientSection").style.display = "none";
-    }
-    function toggleRemoveClient() {
-      document.getElementById("removeClientSection").style.display = "block";
-      document.getElementById("addClientSection").style.display = "none";
-      updateRemoveClientDropdown();
-    }
-    // عند النقر على بطاقة عميل، الانتقال إلى صفحة تفاصيل العميل (لتعديل الديون)
-    function editClientDebt(clientName) {
-      document.getElementById("debtDetailsPage").style.display = "block";
-      document.getElementById("customerDebtsPage").style.display = "none";
-      document.getElementById("clientDetailsName").textContent = clientName;
-      updateClientDebtDetails(clientName);
-    }
-    function updateClientDebtDetails(clientName) {
-      const client = clients[clientName];
-      const summaryDiv = document.getElementById("clientDebtSummary");
-      summaryDiv.innerHTML = `<strong>ملخص ديون ${clientName}:</strong><br>
-        SDG: ${client.summary.SDG.toFixed(2)}<br>
-        AED: ${client.summary.AED.toFixed(2)}<br>
-        SAR: ${client.summary.SAR.toFixed(2)}`;
-      const detailsDiv = document.getElementById("clientDebtDetails");
-      detailsDiv.innerHTML = "";
-      client.details.forEach((detail, index) => {
-        const detailDiv = document.createElement("div");
-        detailDiv.className = "balance-item";
-        const color = detail.amount > 0 ? "var(--negative)" : "var(--positive)";
-        detailDiv.innerHTML = `
-          <strong>${index+1}.</strong> ${detail.date} - ${detail.currency} 
-          <span style="color:${color}">${detail.amount.toFixed(2)}</span> - ${detail.comment}
-          <button style="float:left; background:#ccc; padding:5px; border-radius:5px;" onclick="deleteClientDebt('${clientName}', ${index})">حذف</button>
-          <button style="float:right; background:#aaa; padding:5px; border-radius:5px;" onclick="fillClientDebtForEdit('${clientName}', ${index})">تعديل</button>
-        `;
-        detailsDiv.appendChild(detailDiv);
+
+    function updateCurrencySelects() {
+      const selects = document.querySelectorAll('select:not(#currency-select):not(#balance-currency-select)');
+      selects.forEach(select => {
+        if (select.id.includes('Currency')) {
+          select.innerHTML = '';
+          for (const code in currencies) {
+            const option = document.createElement('option');
+            option.value = code;
+            option.textContent = `${code} - ${currencies[code]}`;
+            select.appendChild(option);
+          }
+        }
       });
     }
-    function deleteClientDebt(clientName, index) {
-      if (!confirm("هل أنت متأكد من حذف هذا السجل؟")) return;
-      const detail = clients[clientName].details[index];
-      clients[clientName].summary[detail.currency] -= detail.amount;
-      clients[clientName].details.splice(index, 1);
-      updateClientDebtDetails(clientName);
-      updateOverallDebtSummary();
-      updateClientsListDisplay();
-      alert("تم حذف سجل الدين بنجاح");
-    }
-    function fillClientDebtForEdit(clientName, index) {
-      const record = clients[clientName].details[index];
-      document.getElementById("clientDebtType").value = record.amount > 0 ? "لك" : "له";
-      document.getElementById("clientDebtAmount").value = Math.abs(record.amount);
-      document.getElementById("clientDebtCurrency").value = record.currency;
-      document.getElementById("clientDebtComment").value = record.comment;
-      document.getElementById("clientDebtAmount").setAttribute("data-edit-index", index);
-    }
-    function addOrUpdateClientDebt() {
-      const clientName = document.getElementById("clientDetailsName").textContent;
-      const type = document.getElementById("clientDebtType").value;
-      let amount = parseFloat(document.getElementById("clientDebtAmount").value) || 0;
-      const currency = document.getElementById("clientDebtCurrency").value;
-      const comment = document.getElementById("clientDebtComment").value.trim();
-      if (amount <= 0) {
-        alert("الرجاء إدخال مبلغ صحيح");
+
+    function updateActiveCurrenciesList() {
+      const list = document.getElementById('active-currencies-list');
+      if (!list) return;
+      list.innerHTML = '';
+      if (Object.keys(currencies).length === 0) {
+        list.innerHTML = '<p style="text-align:center;color:#666;">لا توجد عملات مضافة</p>';
         return;
       }
-      if (type === "له") amount = -amount;
-      const editIndex = document.getElementById("clientDebtAmount").getAttribute("data-edit-index");
-      if (editIndex !== null) {
-        const oldRecord = clients[clientName].details[editIndex];
-        clients[clientName].summary[oldRecord.currency] -= oldRecord.amount;
-        clients[clientName].details[editIndex] = {
-          amount: amount,
-          currency: currency,
-          type: type,
-          comment: comment,
-          date: new Date().toLocaleString()
-        };
-        clients[clientName].summary[currency] += amount;
-        document.getElementById("clientDebtAmount").removeAttribute("data-edit-index");
-        alert("تم تعديل سجل الدين بنجاح");
-      } else {
-        const newRecord = {
-          amount: amount,
-          currency: currency,
-          type: type,
-          comment: comment,
-          date: new Date().toLocaleString()
-        };
-        clients[clientName].details.push(newRecord);
-        clients[clientName].summary[currency] += amount;
-        alert("تم إضافة سجل الدين بنجاح");
+      for (const [code, name] of Object.entries(currencies)) {
+        const div = document.createElement('div');
+        div.className = 'balance-item';
+        div.innerHTML = `
+          <span>${name} (${code})</span>
+          <button onclick="removeCurrency('${code}')" style="width:auto;padding:5px 10px;background:#dc3545;">
+            <i class="fas fa-trash"></i>
+          </button>
+        `;
+        list.appendChild(div);
       }
-      updateClientDebtDetails(clientName);
-      updateOverallDebtSummary();
-      updateClientsListDisplay();
-      document.getElementById("clientDebtAmount").value = "";
-      document.getElementById("clientDebtComment").value = "";
     }
 
-    // -------------------------------
-    // 5. إعدادات التطبيق
-    function saveSettings() {
-      alert("تم حفظ الإعدادات!");
-      updateNotification();
-    }
-    function deleteTransactionFromSettings() {
-      const enableDelete = document.getElementById("enableDelete").value;
-      if (enableDelete !== "yes") {
-        alert("خاصية حذف المعاملة غير مفعلة في الإعدادات");
-        return;
-      }
-      const transactionId = document.getElementById("deleteTransactionId").value;
-      if (!transactionId) {
-        alert("الرجاء إدخال رقم معاملة صحيح");
-        return;
-      }
-      const index = transactions.findIndex(tx => tx.id == transactionId);
-      if (index === -1) {
-        alert("المعاملة غير موجودة");
-        return;
-      }
-      transactions.splice(index, 1);
-      alert("تم حذف المعاملة");
-      updateTransactionsUI();
-      updateNotification();
-    }
-
-    // -------------------------------
-    // 6. التنقل بين الصفحات
-    function showPage(pageId) {
-      document.querySelectorAll('.page').forEach(page => page.style.display = 'none');
-      document.getElementById(pageId).style.display = 'block';
-      document.getElementById('mainPage').style.display = 'none';
-      if (pageId === "customerDebtsPage") {
-        updateOverallDebtSummary();
-        updateClientsListDisplay();
-        updateClientsDatalist();
-        updateRemoveClientDropdown();
-      }
-      if (pageId === "historyPage") {
-        updateTransactionsUI();
-      }
-    }
-    function showMain() {
-      document.querySelectorAll('.page').forEach(page => page.style.display = 'none');
-      document.getElementById('mainPage').style.display = 'grid';
-    }
-    // -------------------------------
-    // 7. حساب التحويل
-    function calculateConversion() {
-      const amount = parseFloat(document.getElementById("transferAmount").value) || 0;
-      const rate = parseFloat(document.getElementById("exchangeRate").value) || 0;
-      const op = document.getElementById("conversionOperation").value;
-      let result = 0;
-      if (op === "×") {
-        result = amount * rate;
-      } else if (op === "÷") {
-        result = rate === 0 ? 0 : amount / rate;
-      }
-      document.getElementById("conversionPreview").textContent = result.toFixed(2);
-    }
-    // عند تحميل الصفحة
-    window.onload = () => {
+    function addCurrency() {
+      const select = document.getElementById('currency-select');
+      const selectedOption = select.options[select.selectedIndex];
+      const code = selectedOption.value;
+      const name = selectedOption.text.split('(')[0].trim();
+      if (currencies[code]) return showNotification('هذه العملة مضافة بالفعل');
+      currencies[code] = name;
+      balances[code] = balances[code] || 0;
+      updateCurrencySelects();
       updateBalances();
+      updateActiveCurrenciesList();
+      saveData();
+      showNotification(`تمت إضافة عملة ${name} (${code}) بنجاح`);
+    }
+
+    function removeCurrency(code) {
+      if (!confirm(`هل أنت متأكد من حذف العملة ${currencies[code]} (${code})؟`)) return;
+      delete currencies[code];
+      delete balances[code];
+      updateCurrencySelects();
+      updateBalances();
+      updateActiveCurrenciesList();
+      saveData();
+      showNotification(`تم حذف العملة ${code} بنجاح`);
+    }
+
+    function updateBalance() {
+      const currency = document.getElementById('balance-currency-select').value;
+      const newBalance = parseFloat(document.getElementById('new-balance').value);
+      if (isNaN(newBalance)) return showNotification('الرجاء إدخال مبلغ صحيح');
+      balances[currency] = newBalance;
+      updateBalances();
+      saveData();
+      showNotification(`تم تحديث رصيد ${currency} إلى ${newBalance}`);
+    }
+
+    function setTheme(theme) {
+      currentTheme = theme;
+      document.documentElement.setAttribute('data-theme', theme);
+      saveData();
+      showNotification(`تم التغيير إلى الوضع ${theme === 'dark' ? 'المظلم' : 'الفاتح'}`);
+    }
+
+    function setLanguage(lang) {
+      currentLanguage = lang;
+      saveData();
+      showNotification(`تم التغيير إلى اللغة ${lang === 'ar' ? 'العربية' : 'الإنجليزية'}`);
+    }
+
+    function addTransaction({ type, description, amount, currency, comment }) {
+      const tx = { 
+        id: transactionIdCounter++, 
+        type, 
+        description, 
+        amount, 
+        currency, 
+        comment, 
+        date: new Date().toLocaleString('ar-EG')
+      };
+      transactions.push(tx);
       updateTransactionsUI();
-    };
+      updateRecentTransactions();
+      saveData();
+    }
+
+    function updateTransactionsUI() {
+      const container = document.getElementById('transactionsList');
+      if (!container) return;
+      container.innerHTML = '';
+      if (transactions.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">لا توجد معاملات مسجلة</div>';
+        return;
+      }
+      transactions.slice().reverse().forEach(tx => {
+        const div = document.createElement('div');
+        div.className = 'transaction-item';
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+            <strong>${tx.type}</strong>
+            <span>${Number(tx.amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${tx.currency}</span>
+          </div>
+          <div style="margin-bottom:5px;">${tx.description}</div>
+          <small style="color:#666;">${tx.date}</small>
+          ${tx.comment ? `<div style="margin-top:5px; color:#666;"><small>ملاحظة: ${tx.comment}</small></div>` : ''}
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function updateRecentTransactions() {
+      const container = document.getElementById('recentTransactions');
+      if (!container) return;
+      container.innerHTML = '';
+      const recent = transactions.slice(0, 5);
+      if (recent.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:10px; color:#666;">لا توجد معاملات حديثة</div>';
+        return;
+      }
+      recent.forEach(tx => {
+        const div = document.createElement('div');
+        div.className = 'transaction-item';
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between;">
+            <span><strong>${tx.type}</strong></span>
+            <span>${Number(tx.amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${tx.currency}</span>
+          </div>
+          <div style="font-size:0.9em; color:#666;">${tx.description}</div>
+          <small style="color:#999;">${tx.date}</small>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function performTransfer() {
+      const from = document.getElementById('fromCurrency').value;
+      const to = document.getElementById('toCurrency').value;
+      const amount = parseFloat(document.getElementById('transferAmount').value) || 0;
+      const rate = parseFloat(document.getElementById('exchangeRate').value) || 1;
+      const comment = document.getElementById('transferComment').value;
+      if (from === to) return showNotification('لا يمكن التحويل لنفس العملة');
+      if (!validateTransaction(amount, from, 'تحويل')) return;
+      balances[from] = (balances[from] || 0) - amount;
+      const converted = amount * rate;
+      balances[to] = (balances[to] || 0) + converted;
+      addTransaction({ 
+        type: 'تحويل', 
+        description: `${amount} ${from} إلى ${converted.toFixed(2)} ${to}`, 
+        amount, 
+        currency: from, 
+        comment: `سعر الصرف: ${rate} - ${comment || 'لا يوجد تعليق'}`
+      });
+      updateBalances();
+      showNotification('تم التحويل بنجاح');
+      document.getElementById('transferAmount').value = '';
+      document.getElementById('exchangeRate').value = '';
+      document.getElementById('transferComment').value = '';
+    }
+
+    function performExpense() {
+      const person = document.getElementById('expensePerson').value;
+      const type = document.getElementById('expenseType').value;
+      const amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+      const currency = document.getElementById('expenseCurrency').value;
+      const details = document.getElementById('expenseDetails').value;
+      if (!person) return showNotification('يرجى إدخال اسم العميل/المورد');
+      if (!validateTransaction(amount, currency, type)) return;
+      if (type === 'صادر') {
+        balances[currency] = (balances[currency] || 0) - amount;
+      } else {
+        balances[currency] = (balances[currency] || 0) + amount;
+      }
+      updateBalances();
+      addTransaction({ 
+        type, 
+        description: `${type} - ${person}`, 
+        amount, 
+        currency, 
+        comment: details 
+      });
+      showNotification(`تمت عملية ${type} بنجاح`);
+      document.getElementById('expensePerson').value = '';
+      document.getElementById('expenseAmount').value = '';
+      document.getElementById('expenseDetails').value = '';
+    }
+
+    function validateTransaction(amount, currency, type) {
+      if (amount <= 0) return showNotification('المبلغ يجب أن يكون أكبر من الصفر') && false;
+      if ((type === 'صادر' || type === 'تحويل') && (balances[currency] || 0) < amount) {
+        return showNotification('الرصيد غير كافٍ لإتمام هذه العملية') && false;
+      }
+      return true;
+    }
+
+    // وظائف خاصة بصفحة الديون
+    function updateClientsListDisplay() {
+      const list = document.getElementById('clientsListDisplay');
+      if (!list) return;
+      list.innerHTML = '';
+      const clientNames = Object.keys(clients);
+      if (clientNames.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding:15px; color:#666;">لا يوجد عملاء مسجلين</div>';
+        return;
+      }
+      clientNames.forEach(name => {
+        const client = clients[name];
+        const div = document.createElement('div');
+        div.className = 'debt-record';
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; cursor:pointer;" onclick="showDebtDetails('${name}')">
+            <strong>${name}</strong>
+            <span>${client.phone || 'لا يوجد رقم'}</span>
+          </div>
+          ${client.note ? `<div style="margin-top:5px; color:#666;"><small>${client.note}</small></div>` : ''}
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function toggleAddClient() {
+      const addSection = document.getElementById('addClientSection');
+      addSection.style.display = addSection.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function toggleRemoveClient() {
+      const removeSection = document.getElementById('removeClientSection');
+      removeSection.style.display = removeSection.style.display === 'none' ? 'block' : 'none';
+      updateRemoveClientDropdown();
+    }
+
+    function updateRemoveClientDropdown() {
+      const dropdown = document.getElementById('removeClientDropdown');
+      dropdown.innerHTML = '';
+      for (const name in clients) {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        dropdown.appendChild(option);
+      }
+    }
+
+    function addClientDebt() {
+      const name = document.getElementById('newClientName').value.trim();
+      const phone = document.getElementById('newClientPhone').value.trim();
+      const note = document.getElementById('newClientNote').value.trim();
+      if (!name) return showNotification('الرجاء إدخال اسم العميل');
+      if (clients[name]) return showNotification('اسم العميل موجود مسبقاً');
+      clients[name] = { phone, note, debts: [] };
+      updateClientsListDisplay();
+      saveData();
+      showNotification(`تمت إضافة العميل ${name} بنجاح`);
+      document.getElementById('newClientName').value = '';
+      document.getElementById('newClientPhone').value = '';
+      document.getElementById('newClientNote').value = '';
+    }
+
+    function removeClientFromDropdown() {
+      const dropdown = document.getElementById('removeClientDropdown');
+      const name = dropdown.value;
+      if (!name) return;
+      if (!confirm(`هل أنت متأكد من حذف العميل ${name}؟`)) return;
+      delete clients[name];
+      updateClientsListDisplay();
+      updateRemoveClientDropdown();
+      saveData();
+      showNotification(`تم حذف العميل ${name} بنجاح`);
+    }
+
+    function showDebtDetails(name) {
+      currentDebtClient = name;
+      document.getElementById('clientDetailsName').textContent = name;
+      updateClientDebtSummary();
+      updateDebtDetailsUI();
+      updateDebtCurrencySelects();
+      showPage('debtDetailsPage');
+    }
+
+    function updateClientDebtSummary() {
+      const summaryEl = document.getElementById('clientDebtSummary');
+      if (!summaryEl || !currentDebtClient) return;
+      const client = clients[currentDebtClient];
+      let total = 0;
+      client.debts.forEach(record => {
+        total += record.type === 'لك' ? Number(record.amount) : -Number(record.amount);
+      });
+      summaryEl.innerHTML = `<strong>إجمالي ديون العميل: </strong>${total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+    }
+
+    function updateDebtDetailsUI() {
+      const container = document.getElementById('clientDebtDetails');
+      if (!container || !currentDebtClient) return;
+      container.innerHTML = '';
+      const client = clients[currentDebtClient];
+      if (!client.debts || client.debts.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:10px; color:#666;">لا توجد سجلات ديون</div>';
+        return;
+      }
+      client.debts.forEach(record => {
+        const div = document.createElement('div');
+        div.className = 'debt-record';
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between;">
+            <strong>${record.type}</strong>
+            <span>${Number(record.amount).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} ${record.currency}</span>
+          </div>
+          <div style="margin-top:5px; color:#666;">${record.comment || ''}</div>
+          <small style="color:#999;">${record.date}</small>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function updateDebtCurrencySelects() {
+      const selects = document.querySelectorAll('#clientDebtCurrency');
+      selects.forEach(select => {
+        select.innerHTML = '';
+        for (const code in currencies) {
+          const option = document.createElement('option');
+          option.value = code;
+          option.textContent = `${code} - ${currencies[code]}`;
+          select.appendChild(option);
+        }
+      });
+    }
+
+    function addOrUpdateClientDebt() {
+      if (!currentDebtClient) return;
+      const type = document.getElementById('clientDebtType').value;
+      const amount = parseFloat(document.getElementById('clientDebtAmount').value);
+      const currency = document.getElementById('clientDebtCurrency').value;
+      const comment = document.getElementById('clientDebtComment').value;
+      if (isNaN(amount) || amount <= 0) return showNotification('الرجاء إدخال مبلغ صحيح');
+      const record = {
+        type,
+        amount,
+        currency,
+        comment,
+        date: new Date().toLocaleString('ar-EG')
+      };
+      if (!clients[currentDebtClient].debts) clients[currentDebtClient].debts = [];
+      clients[currentDebtClient].debts.push(record);
+      updateClientDebtSummary();
+      updateDebtDetailsUI();
+      saveData();
+      showNotification('تمت إضافة/تعديل الدين بنجاح');
+      document.getElementById('clientDebtAmount').value = '';
+      document.getElementById('clientDebtComment').value = '';
+    }
+
+    // دالة عرض إجمالي الديون لجميع العملاء في خانة واحدة
+    function updateOverallDebtSummary() {
+      const summaryEl = document.getElementById('overallDebtSummary');
+      if (!summaryEl) return;
+      let totalDebt = 0;
+      for (const clientName in clients) {
+        const client = clients[clientName];
+        if (client.debts && client.debts.length > 0) {
+          client.debts.forEach(record => {
+            totalDebt += record.type === 'لك' ? Number(record.amount) : -Number(record.amount);
+          });
+        }
+      }
+      const formattedTotal = totalDebt.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+      // إذا المجموع موجب نعرض باللون الأخضر وإذا سالب باللون الأحمر
+      const color = totalDebt >= 0 ? 'green' : 'red';
+      summaryEl.innerHTML = `<strong>إجمالي الديون: </strong><span style="color:${color};">${formattedTotal}</span>`;
+    }
+
+    function showNotification(msg) {
+      const n = document.createElement('div');
+      n.className = 'notification';
+      n.textContent = msg;
+      document.body.appendChild(n);
+      setTimeout(() => n.remove(), 3000);
+    }
+
+    
+window.onload = function() {
+  // إعادة تهيئة أولية إذا لم تكن هناك بيانات
+  if (!localStorage.getItem('initialized')) {
+    localStorage.clear();
+    localStorage.setItem('balances', JSON.stringify({ SDG: 0 }));
+    localStorage.setItem('currencies', JSON.stringify({ SDG: "جنيه سوداني" }));
+    localStorage.setItem('initialized', 'true');
+  }
+
+  loadData();
+};
+
   </script>
 </body>
-</html>
+                                        </html>
