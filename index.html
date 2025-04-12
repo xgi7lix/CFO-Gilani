@@ -34,7 +34,7 @@
 
     .container {
       width: 100%;
-      max-width: 1400px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 15px;
     }
@@ -84,7 +84,6 @@
     }
 
     .main-grid {
-  padding: 10px;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 15px;
@@ -93,7 +92,6 @@
 
     @media (min-width: 768px) {
       .main-grid {
-  padding: 10px;
         grid-template-columns: repeat(3, 1fr);
       }
     }
@@ -237,12 +235,7 @@
       margin-left: 10px;
     }
 
-    .notification {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000; 
+    .notification { 
       background: #28a745; 
       color: white; 
       padding: 10px 15px; 
@@ -413,7 +406,10 @@
     </div>
     <div class="form-row">
       <label>سعر الصرف:</label>
+      <div style="display:flex; align-items:center; gap:10px;">
       <input type="number" id="exchangeRate" placeholder="أدخل سعر الصرف" step="0.0001">
+      <button id="rateModeBtn" type="button" onclick="toggleRateMode()" style="width:auto;padding:5px 10px;">×</button>
+    </div>
     </div>
     <div class="form-row">
       <label>تعليق (اختياري):</label>
@@ -588,6 +584,7 @@
           <option value="EUR">يورو (EUR)</option>
           <option value="GBP">جنيه إسترليني (GBP)</option>
           <option value="SAR">ريال سعودي (SAR)</option>
+<option value="AED">درهم إماراتي (AED)</option>
           <option value="EGP">جنيه مصري (EGP)</option>
           <option value="SDG">جنيه سوداني (SDG)</option>
           <option value="QAR">ريال قطري (QAR)</option>
@@ -963,7 +960,7 @@
       if (from === to) return showNotification('لا يمكن التحويل لنفس العملة');
       if (!validateTransaction(amount, from, 'تحويل')) return;
       balances[from] = (balances[from] || 0) - amount;
-      const converted = amount * rate;
+      const converted = isMultiplyMode ? amount * rate : amount / rate;
       balances[to] = (balances[to] || 0) + converted;
       addTransaction({ 
         type: 'تحويل', 
@@ -1197,6 +1194,15 @@
     }
 
     
+
+let isMultiplyMode = true;
+function toggleRateMode() {
+  isMultiplyMode = !isMultiplyMode;
+  const btn = document.getElementById('rateModeBtn');
+  if (btn) btn.textContent = isMultiplyMode ? '×' : '÷';
+}
+
+
 window.onload = function() {
   // إعادة تهيئة أولية إذا لم تكن هناك بيانات
   if (!localStorage.getItem('initialized')) {
@@ -1211,4 +1217,4 @@ window.onload = function() {
 
   </script>
 </body>
-                                        </html>
+      </html>
