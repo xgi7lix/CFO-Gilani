@@ -90,6 +90,22 @@
     .auth-switch a { color: var(--primary-color); cursor: pointer; font-weight: bold; }
     .auth-switch a:hover { text-decoration: underline; }
     #app-container { display: none; } /* Hidden by default */
+    
+    /* Loader */
+    .loader { 
+      display: none;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid var(--primary-color);
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 10px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -113,8 +129,10 @@
             <a href="#" onclick="handlePasswordReset(event)" class="auth-switch">نسيت كلمة المرور؟</a>
         </div>
         <button onclick="handleLogin()">تسجيل الدخول</button>
+        <div class="loader" id="login-loader"></div>
         <div class="or-separator">أو</div>
         <button class="google-btn" onclick="signInWithGoogle()"><i class="fab fa-google"></i> المتابعة باستخدام Google</button>
+        <div class="loader" id="google-loader"></div>
         <p class="auth-switch">ليس لديك حساب؟ <a onclick="toggleAuthForms()">إنشاء حساب جديد</a></p>
       </div>
       <!-- Signup Form -->
@@ -137,8 +155,10 @@
           <input type="password" id="signup-password" placeholder="6 أحرف على الأقل" required>
         </div>
         <button onclick="handleSignup()">إنشاء حساب</button>
+        <div class="loader" id="signup-loader"></div>
         <div class="or-separator">أو</div>
         <button class="google-btn" onclick="signInWithGoogle()"><i class="fab fa-google"></i> المتابعة باستخدام Google</button>
+        <div class="loader" id="google-loader-signup"></div>
         <p class="auth-switch">لديك حساب بالفعل؟ <a onclick="toggleAuthForms()">تسجيل الدخول</a></p>
       </div>
     </div>
@@ -313,6 +333,10 @@
             return;
         }
 
+        // Show loader
+        const loader = document.getElementById('signup-loader');
+        loader.style.display = 'block';
+        
         auth.createUserWithEmailAndPassword(email, password)
             .then(userCredential => {
                 const user = userCredential.user;
@@ -320,8 +344,15 @@
                 return user.updateProfile({
                     displayName: `${firstName} ${lastName}`
                 }).then(() => {
-                    // الآن بعد تحديث الملف الشخصي، نقوم بتهيئة بيانات التطبيق
-                    // المستمع onAuthStateChanged سيتولى الباقي
+                    // إنشاء مستند المستخدم في Firestore
+                    return db.collection('users').doc(user.uid).set({
+                        balances: { "SDG": 0, "QAR": 0 },
+                        currencies: { "SDG": "جنيه سوداني", "QAR": "ريال قطري" },
+                        transactions: [],
+                        clients: {},
+                        transactionIdCounter: 1101
+                    });
+                }).then(() => {
                     showNotification("تم إنشاء الحساب بنجاح! جاري تسجيل الدخول...");
                     // Clear signup form fields
                     document.getElementById('signup-email').value = '';
@@ -330,43 +361,94 @@
                     document.getElementById('signup-lastname').value = '';
                 });
             })
-            .catch(error => showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true));
+            .catch(error => {
+                showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true);
+            })
+            .finally(() => {
+                loader.style.display = 'none';
+            });
     }
 
     function handleLogin() {
       const email = document.getElementById('login-email').value;
       const password = document.getElementById('login-password').value;
+      
+      // Show loader
+      const loader = document.getElementById('login-loader');
+      loader.style.display = 'block';
+      
       auth.signInWithEmailAndPassword(email, password)
         .then(userCredential => {
           showNotification(`أهلاً بك مجدداً، ${userCredential.user.displayName || 'المستخدم'}!`);
         })
-        .catch(error => showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true));
+        .catch(error => showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true))
+        .finally(() => {
+            loader.style.display = 'none';
+        });
     }
 
     function signInWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({
+            prompt: 'select_account' // يطلب اختيار حساب كل مرة
+        });
+        
+        // Show loader in both forms
+        const loaderLogin = document.getElementById('google-loader');
+        const loaderSignup = document.getElementById('google-loader-signup');
+        if (loaderLogin) loaderLogin.style.display = 'block';
+        if (loaderSignup) loaderSignup.style.display = 'block';
+        
         auth.signInWithPopup(provider)
             .then(result => {
+                const user = result.user;
                 const isNewUser = result.additionalUserInfo.isNewUser;
+                
                 if (isNewUser) {
-                    // The onAuthStateChanged listener will call loadData, which calls initializeUserData for new users.
-                    showNotification(`أهلاً بك، ${result.user.displayName}! تم إنشاء حسابك بنجاح.`);
+                    // إنشاء ملف مستخدم جديد في Firestore
+                    return db.collection('users').doc(user.uid).set({
+                        balances: { "SDG": 0, "QAR": 0 },
+                        currencies: { "SDG": "جنيه سوداني", "QAR": "ريال قطري" },
+                        transactions: [],
+                        clients: {},
+                        transactionIdCounter: 1101
+                    }).then(() => {
+                        showNotification(`أهلاً بك ${user.displayName}! تم إنشاء حسابك.`);
+                    });
                 } else {
-                    showNotification(`أهلاً بك مجدداً، ${result.user.displayName}!`);
+                    showNotification(`أهلاً بك مجدداً ${user.displayName}!`);
                 }
             })
             .catch(error => {
                 console.error("Google Sign-In Error:", error);
-                // Check for specific error codes related to pop-up or redirect issues
-                if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
-                    showNotification('تم حظر النافذة المنبثقة أو تم إلغاء الطلب. يرجى السماح بالنوافذ المنبثقة والمحاولة مرة أخرى.', true);
-                } else if (error.code === 'auth/operation-not-allowed') {
-                    showNotification('تسجيل الدخول باستخدام Google غير مفعل في إعدادات Firebase لمشروعك. يرجى تفعيله.', true);
-                } else if (error.code === 'auth/account-exists-with-different-credential') {
-                    showNotification('يوجد حساب مرتبط بهذا البريد الإلكتروني ولكن تم إنشاؤه بطريقة أخرى (مثلاً، عبر البريد وكلمة المرور). يرجى تسجيل الدخول بالطريقة الأصلية أو إعادة تعيين كلمة المرور.', true);
-                } else {
-                    showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true);
+                let friendlyError = "حدث خطأ غير متوقع";
+                
+                switch(error.code) {
+                    case 'auth/popup-blocked':
+                        friendlyError = "تم حظر النافذة المنبثقة. يرجى السماح بالنوافذ المنبثقة";
+                        break;
+                    case 'auth/network-request-failed':
+                        friendlyError = "خطأ في الشبكة. يرجى التحقق من اتصال الإنترنت";
+                        break;
+                    case 'auth/operation-not-allowed':
+                        friendlyError = "تسجيل الدخول بجوجل غير مفعل في إعدادات Firebase";
+                        break;
+                    case 'auth/cancelled-popup-request':
+                    case 'auth/popup-closed-by-user':
+                        friendlyError = "تم إغلاق نافذة التسجيل";
+                        break;
+                    case 'auth/account-exists-with-different-credential':
+                        friendlyError = "يوجد حساب مرتبط بهذا البريد الإلكتروني ولكن تم إنشاؤه بطريقة أخرى";
+                        break;
+                    default:
+                        friendlyError = `خطأ: ${getArabicAuthError(error.code)}`;
                 }
+                
+                showNotification(friendlyError, true);
+            })
+            .finally(() => {
+                if (loaderLogin) loaderLogin.style.display = 'none';
+                if (loaderSignup) loaderSignup.style.display = 'none';
             });
     }
 
@@ -415,9 +497,10 @@
             case 'auth/weak-password':
                 return 'كلمة المرور ضعيفة جداً. يجب أن تتكون من 6 أحرف على الأقل.';
             case 'auth/popup-closed-by-user':
-                return 'تم إغلاق نافذة تسجيل الدخول. يرجى المحاولة مرة أخرى.';
+            case 'auth/cancelled-popup-request':
+                return 'تم إغلاق نافذة التسجيل';
             case 'auth/account-exists-with-different-credential':
-                return 'يوجد حساب مرتبط بهذا البريد الإلكتروني ولكن تم إنشاؤه بطريقة أخرى (مثلاً، عبر البريد وكلمة المرور).';
+                return 'يوجد حساب مرتبط بهذا البريد الإلكتروني ولكن تم إنشاؤه بطريقة أخرى';
             default:
                 console.error("Unhandled Auth Error Code:", errorCode);
                 return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
@@ -447,8 +530,20 @@
                 clients = data.clients || {};
                 transactionIdCounter = data.transactionIdCounter || 1101;
             } else {
-                // First time login for this user, create initial data
-                await initializeUserData();
+                // Create initial data for new users
+                await userDocRef.set({
+                    balances: { "SDG": 0, "QAR": 0 },
+                    currencies: { "SDG": "جنيه سوداني", "QAR": "ريال قطري" },
+                    transactions: [],
+                    clients: {},
+                    transactionIdCounter: 1101
+                });
+                // Update local state
+                balances = { "SDG": 0, "QAR": 0 };
+                currencies = { "SDG": "جنيه سوداني", "QAR": "ريال قطري" };
+                transactions = [];
+                clients = {};
+                transactionIdCounter = 1101;
             }
         } catch (error) {
             console.error("Error loading data: ", error);
@@ -457,23 +552,6 @@
 
         // Update UI after loading data
         updateAllUI();
-    }
-
-    async function initializeUserData() {
-        const initialData = {
-            balances: { "SDG": 0, "QAR": 0 },
-            currencies: { "SDG": "جنيه سوداني", "QAR": "ريال قطري" },
-            transactions: [],
-            clients: {},
-            transactionIdCounter: 1101
-        };
-        await userDocRef.set(initialData);
-        // Assign initial data to local state
-        balances = initialData.balances;
-        currencies = initialData.currencies;
-        transactions = initialData.transactions;
-        clients = initialData.clients;
-        transactionIdCounter = initialData.transactionIdCounter;
     }
 
     async function saveData() {
@@ -697,7 +775,7 @@
     function performExpense() {
       const person = document.getElementById('expensePerson').value;
       const type = document.getElementById('expenseType').value;
-      const amount = parseFloat(document.getElementById('expenseAmount').value);
+      const amount = parseFloat(document.getElementById('expenseAmount').value;
       const currency = document.getElementById('expenseCurrency').value;
       const details = document.getElementById('expenseDetails').value;
 
@@ -1054,4 +1132,3 @@
   </script>
 </body>
 </html>
-
