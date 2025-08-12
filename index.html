@@ -323,6 +323,11 @@
                     // الآن بعد تحديث الملف الشخصي، نقوم بتهيئة بيانات التطبيق
                     // المستمع onAuthStateChanged سيتولى الباقي
                     showNotification("تم إنشاء الحساب بنجاح! جاري تسجيل الدخول...");
+                    // Clear signup form fields
+                    document.getElementById('signup-email').value = '';
+                    document.getElementById('signup-password').value = '';
+                    document.getElementById('signup-firstname').value = '';
+                    document.getElementById('signup-lastname').value = '';
                 });
             })
             .catch(error => showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true));
@@ -352,7 +357,16 @@
             })
             .catch(error => {
                 console.error("Google Sign-In Error:", error);
-                showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true);
+                // Check for specific error codes related to pop-up or redirect issues
+                if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+                    showNotification('تم حظر النافذة المنبثقة أو تم إلغاء الطلب. يرجى السماح بالنوافذ المنبثقة والمحاولة مرة أخرى.', true);
+                } else if (error.code === 'auth/operation-not-allowed') {
+                    showNotification('تسجيل الدخول باستخدام Google غير مفعل في إعدادات Firebase لمشروعك. يرجى تفعيله.', true);
+                } else if (error.code === 'auth/account-exists-with-different-credential') {
+                    showNotification('يوجد حساب مرتبط بهذا البريد الإلكتروني ولكن تم إنشاؤه بطريقة أخرى (مثلاً، عبر البريد وكلمة المرور). يرجى تسجيل الدخول بالطريقة الأصلية أو إعادة تعيين كلمة المرور.', true);
+                } else {
+                    showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true);
+                }
             });
     }
 
@@ -381,6 +395,7 @@
         currencies = {};
         transactions = [];
         clients = {};
+        transactionIdCounter = 1101;
         goBack(); // Return to main screen view before logout
       }).catch(error => showNotification(`خطأ في تسجيل الخروج: ${error.message}`, true));
     }
@@ -897,6 +912,7 @@
                 overallDebtHtml += `${overallDebt[currency].toFixed(2)} ${currency} ${overallDebt[currency] > 0 ? 'لك' : 'له'}، `;
                 hasOverallDebt = true;
             }
+            
         }
         if (hasOverallDebt) {
             overallDebtHtml = overallDebtHtml.slice(0, -2) + '</span>';
