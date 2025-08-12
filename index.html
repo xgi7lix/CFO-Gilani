@@ -108,6 +108,10 @@
           <label for="login-password">كلمة المرور</label>
           <input type="password" id="login-password" placeholder="********" required>
         </div>
+        <!-- رابط نسيت كلمة المرور -->
+        <div class="form-row" style="text-align: left; margin-top: -10px; margin-bottom: 15px;">
+            <a href="#" onclick="handlePasswordReset(event)" class="auth-switch">نسيت كلمة المرور؟</a>
+        </div>
         <button onclick="handleLogin()">تسجيل الدخول</button>
         <div class="or-separator">أو</div>
         <button class="google-btn" onclick="signInWithGoogle()"><i class="fab fa-google"></i> المتابعة باستخدام Google</button>
@@ -116,6 +120,14 @@
       <!-- Signup Form -->
       <div id="signup-form" style="display: none;">
         <h2>إنشاء حساب جديد</h2>
+        <div class="form-row">
+            <label for="signup-firstname">الاسم الأول</label>
+            <input type="text" id="signup-firstname" placeholder="مثال: أحمد" required>
+        </div>
+        <div class="form-row">
+            <label for="signup-lastname">الاسم الأخير</label>
+            <input type="text" id="signup-lastname" placeholder="مثال: محمد" required>
+        </div>
         <div class="form-row">
           <label for="signup-email">البريد الإلكتروني</label>
           <input type="email" id="signup-email" placeholder="email@example.com" required>
@@ -287,18 +299,33 @@
 
     // --- Auth Functions ---
     function handleSignup() {
-      const email = document.getElementById('signup-email').value;
-      const password = document.getElementById('signup-password').value;
-      if (password.length < 6) {
-        showNotification("يجب أن تكون كلمة المرور 6 أحرف على الأقل", true);
-        return;
-      }
-      auth.createUserWithEmailAndPassword(email, password)
-        .then(userCredential => {
-          showNotification("تم إنشاء الحساب بنجاح! جاري تسجيل الدخول...");
-          // The onAuthStateChanged listener will handle the UI switch and data initialization.
-        })
-        .catch(error => showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true));
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        const firstName = document.getElementById('signup-firstname').value.trim();
+        const lastName = document.getElementById('signup-lastname').value.trim();
+
+        if (!firstName || !lastName) {
+            showNotification("الرجاء إدخال الاسم الأول والأخير.", true);
+            return;
+        }
+        if (password.length < 6) {
+            showNotification("يجب أن تكون كلمة المرور 6 أحرف على الأقل", true);
+            return;
+        }
+
+        auth.createUserWithEmailAndPassword(email, password)
+            .then(userCredential => {
+                const user = userCredential.user;
+                // تحديث ملف المستخدم بالاسم الكامل
+                return user.updateProfile({
+                    displayName: `${firstName} ${lastName}`
+                }).then(() => {
+                    // الآن بعد تحديث الملف الشخصي، نقوم بتهيئة بيانات التطبيق
+                    // المستمع onAuthStateChanged سيتولى الباقي
+                    showNotification("تم إنشاء الحساب بنجاح! جاري تسجيل الدخول...");
+                });
+            })
+            .catch(error => showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true));
     }
 
     function handleLogin() {
@@ -306,18 +333,44 @@
       const password = document.getElementById('login-password').value;
       auth.signInWithEmailAndPassword(email, password)
         .then(userCredential => {
-          showNotification("تم تسجيل الدخول بنجاح!");
+          showNotification(`أهلاً بك مجدداً، ${userCredential.user.displayName || 'المستخدم'}!`);
         })
         .catch(error => showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true));
     }
 
     function signInWithGoogle() {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider)
-        .then(result => {
-          showNotification(`أهلاً بك، ${result.user.displayName}!`);
-        })
-        .catch(error => showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true));
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider)
+            .then(result => {
+                const isNewUser = result.additionalUserInfo.isNewUser;
+                if (isNewUser) {
+                    // The onAuthStateChanged listener will call loadData, which calls initializeUserData for new users.
+                    showNotification(`أهلاً بك، ${result.user.displayName}! تم إنشاء حسابك بنجاح.`);
+                } else {
+                    showNotification(`أهلاً بك مجدداً، ${result.user.displayName}!`);
+                }
+            })
+            .catch(error => {
+                console.error("Google Sign-In Error:", error);
+                showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true);
+            });
+    }
+
+    function handlePasswordReset(event) {
+        event.preventDefault(); // لمنع التحديث التلقائي للصفحة
+        const email = document.getElementById('login-email').value;
+        if (!email) {
+            showNotification("الرجاء إدخال بريدك الإلكتروني أولاً في حقل البريد الإلكتروني.", true);
+            return;
+        }
+
+        auth.sendPasswordResetEmail(email)
+            .then(() => {
+                showNotification(`تم إرسال رابط إعادة تعيين كلمة المرور إلى ${email}. يرجى التحقق من بريدك الوارد.`);
+            })
+            .catch(error => {
+                showNotification(`خطأ: ${getArabicAuthError(error.code)}`, true);
+            });
     }
 
     function handleLogout() {
@@ -335,20 +388,23 @@
     function getArabicAuthError(errorCode) {
         switch (errorCode) {
             case 'auth/invalid-email':
-                return 'البريد الإلكتروني غير صالح.';
+                return 'البريد الإلكتروني الذي أدخلته غير صالح.';
             case 'auth/user-disabled':
-                return 'تم تعطيل هذا الحساب.';
+                return 'تم تعطيل هذا الحساب من قبل المسؤول.';
             case 'auth/user-not-found':
-                return 'لا يوجد حساب بهذا البريد الإلكتروني.';
+                return 'هذا البريد الإلكتروني غير مسجل. هل تريد إنشاء حساب جديد؟';
             case 'auth/wrong-password':
-                return 'كلمة المرور غير صحيحة.';
+                return 'كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.';
             case 'auth/email-already-in-use':
-                return 'هذا البريد الإلكتروني مستخدم بالفعل.';
+                return 'هذا البريد الإلكتروني مستخدم بالفعل في حساب آخر.';
             case 'auth/weak-password':
-                return 'كلمة المرور ضعيفة جداً.';
+                return 'كلمة المرور ضعيفة جداً. يجب أن تتكون من 6 أحرف على الأقل.';
             case 'auth/popup-closed-by-user':
                 return 'تم إغلاق نافذة تسجيل الدخول. يرجى المحاولة مرة أخرى.';
+            case 'auth/account-exists-with-different-credential':
+                return 'يوجد حساب مرتبط بهذا البريد الإلكتروني ولكن تم إنشاؤه بطريقة أخرى (مثلاً، عبر البريد وكلمة المرور).';
             default:
+                console.error("Unhandled Auth Error Code:", errorCode);
                 return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
         }
     }
@@ -407,717 +463,23 @@
 
     async function saveData() {
         if (!userDocRef) return;
-        const dataToSave = {
-            balances,
-            currencies,
-            transactions,
-            clients,
-            transactionIdCounter
-        };
         try {
-            await userDocRef.set(dataToSave);
+            await userDocRef.set({
+                balances: balances,
+                currencies: currencies,
+                transactions: transactions,
+                clients: clients,
+                transactionIdCounter: transactionIdCounter
+            });
         } catch (error) {
             console.error("Error saving data: ", error);
-            showNotification("فشل حفظ البيانات في السحابة.", true);
+            showNotification("حدث خطأ أثناء حفظ البيانات.", true);
         }
     }
-    
-    function updateAllUI() {
-        updateBalances();
-        updateCurrencySelects();
-        updateTransactionsUI();
-        updateRecentTransactions();
-        updateClientsListDisplay();
-        updateActiveCurrenciesList();
-        updateOverallDebtSummary();
-    }
 
-    // --- UI and Logic Functions ---
-    function showPage(pageId) {
-      document.getElementById("main-content").style.display = "none";
-      document.getElementById("main-header").style.display = "none";
-      document.getElementById("page-header").style.display = "block";
-      const pageTitleEl = document.querySelector(`#${pageId} .page-header h2`);
-      document.getElementById("page-title").textContent = pageTitleEl ? pageTitleEl.textContent : "";
-      hideAllPages();
-      document.getElementById(pageId).classList.add("active-page");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    function showSettingsPage(pageId) {
-      const titleEl = document.querySelector(`#${pageId}-page .page-header h2`);
-      if (titleEl) {
-        document.getElementById("page-title").textContent = titleEl.textContent;
-      }
-      hideAllPages();
-      document.getElementById(`${pageId}-page`).classList.add("active-page");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    function goBack() {
-      const currentPage = document.querySelector(".page.active-page");
-      if (currentPage && (currentPage.id.endsWith('-settings-page') || currentPage.id === 'debtDetailsPage')) {
-          if (currentPage.id === 'debtDetailsPage') {
-              showPage('customerDebtsPage');
-          } else {
-              showPage('settings-page');
-          }
-          return;
-      }
-      hideAllPages();
-      document.getElementById("main-content").style.display = "block";
-      document.getElementById("main-header").style.display = "block";
-      document.getElementById("page-header").style.display = "none";
-    }
-
-    function hideAllPages() {
-      document.querySelectorAll(".page").forEach(page => page.classList.remove("active-page"));
-    }
-
-    function updateBalances() {
-      const list = document.getElementById("balancesList");
-      if (!list) return;
-      list.innerHTML = "";
-      for (const [code, balance] of Object.entries(balances)) {
-        const name = currencies[code] || code;
-        const item = document.createElement("div");
-        item.className = "balance-item";
-        item.innerHTML = `<span>${name} (${code}):</span> <span>${balance.toFixed(2)}</span>`;
-        list.appendChild(item);
-      }
-      updateCurrencySelects();
-      updateBalanceSettingsSelect();
-    }
-
-    function updateCurrencySelects() {
-      const currencySelects = document.querySelectorAll("#fromCurrency, #toCurrency, #expenseCurrency, #clientDebtCurrency");
-      currencySelects.forEach(select => {
-        select.innerHTML = "";
-        for (const code in currencies) {
-          const option = document.createElement("option");
-          option.value = code;
-          option.textContent = `${currencies[code]} (${code})`;
-          select.appendChild(option);
-        }
-      });
-    }
-
-    function updateBalanceSettingsSelect() {
-      const select = document.getElementById("balance-currency-select");
-      if (!select) return;
-      select.innerHTML = "";
-      for (const code in balances) {
-        const option = document.createElement("option");
-        option.value = code;
-        option.textContent = `${currencies[code]} (${code})`;
-        select.appendChild(option);
-      }
-    }
-
-    function updateActiveCurrenciesList() {
-      const list = document.getElementById("active-currencies-list");
-      if (!list) return;
-      list.innerHTML = "";
-      for (const code in currencies) {
-        const item = document.createElement("div");
-        item.className = "balance-item";
-        item.innerHTML = `<span>${currencies[code]} (${code})</span> <button class="btn-danger" onclick="removeCurrency('${code}')">حذف</button>`;
-        list.appendChild(item);
-      }
-    }
-
-    function addCurrency() {
-      const select = document.getElementById("currency-select");
-      const code = select.value;
-      const name = select.options[select.selectedIndex].text.split('(')[0].trim();
-
-      if (!currencies[code]) {
-        currencies[code] = name;
-        balances[code] = 0;
-        saveData();
-        updateActiveCurrenciesList();
-        updateCurrencySelects();
-        updateBalances();
-        showNotification(`تم إضافة ${name} بنجاح.`);
-      } else {
-        showNotification("هذه العملة موجودة بالفعل.", true);
-      }
-    }
-
-    function removeCurrency(code) {
-      if (confirm(`هل أنت متأكد من حذف عملة ${currencies[code]} (${code})؟ سيتم حذف جميع الأرصدة والمعاملات المرتبطة بها.`)) {
-        delete currencies[code];
-        delete balances[code];
-        transactions = transactions.filter(t => t.currency !== code && !(t.fromCurrency === code || t.toCurrency === code));
-        // Also filter client debts if they use this currency
-        for (const clientId in clients) {
-            clients[clientId].debts = clients[clientId].debts.filter(d => d.currency !== code);
-        }
-        saveData();
-        updateActiveCurrenciesList();
-        updateCurrencySelects();
-        updateBalances();
-        updateTransactionsUI();
-        updateOverallDebtSummary();
-        showNotification(`تم حذف ${code} بنجاح.`);
-      }
-    }
-
-    function updateBalance() {
-      const currencyCode = document.getElementById("balance-currency-select").value;
-      const newBalance = parseFloat(document.getElementById("new-balance").value);
-
-      if (isNaN(newBalance)) {
-        showNotification("الرجاء إدخال مبلغ صحيح.", true);
-        return;
-      }
-
-      const oldBalance = balances[currencyCode];
-      balances[currencyCode] = newBalance;
-
-      const transaction = {
-        id: transactionIdCounter++,
-        type: "تعديل رصيد",
-        date: new Date().toLocaleString('ar-EG', { timeZone: 'Africa/Khartoum' }),
-        currency: currencyCode,
-        amount: newBalance - oldBalance,
-        details: `تعديل الرصيد من ${oldBalance.toFixed(2)} إلى ${newBalance.toFixed(2)}`,
-        balanceAfter: newBalance
-      };
-      transactions.unshift(transaction);
-      saveData();
-      updateBalances();
-      updateTransactionsUI();
-      updateRecentTransactions();
-      showNotification("تم تحديث الرصيد بنجاح.");
-      document.getElementById("new-balance").value = "";
-    }
-
-    function performTransfer() {
-      const fromCurrency = document.getElementById("fromCurrency").value;
-      const toCurrency = document.getElementById("toCurrency").value;
-      const amount = parseFloat(document.getElementById("transferAmount").value);
-      let exchangeRate = parseFloat(document.getElementById("exchangeRate").value);
-      const comment = document.getElementById("transferComment").value;
-
-      if (fromCurrency === toCurrency) {
-        showNotification("لا يمكن التحويل بين نفس العملة.", true);
-        return;
-      }
-      if (isNaN(amount) || amount <= 0) {
-        showNotification("الرجاء إدخال مبلغ صحيح وموجب.", true);
-        return;
-      }
-      if (isNaN(exchangeRate) || exchangeRate <= 0) {
-        showNotification("الرجاء إدخال سعر صرف صحيح وموجب.", true);
-        return;
-      }
-      if (balances[fromCurrency] < amount) {
-        showNotification(`الرصيد غير كافٍ في ${currencies[fromCurrency]}.`, true);
-        return;
-      }
-
-      let convertedAmount;
-      if (isMultiplyMode) {
-          convertedAmount = amount * exchangeRate;
-      } else { // Divide mode
-          convertedAmount = amount / exchangeRate;
-      }
-
-      balances[fromCurrency] -= amount;
-      balances[toCurrency] += convertedAmount;
-
-      const transaction = {
-        id: transactionIdCounter++,
-        type: "تحويل",
-        date: new Date().toLocaleString('ar-EG', { timeZone: 'Africa/Khartoum' }),
-        fromCurrency: fromCurrency,
-        toCurrency: toCurrency,
-        amount: amount,
-        convertedAmount: convertedAmount,
-        exchangeRate: exchangeRate,
-        comment: comment,
-        balanceAfterFrom: balances[fromCurrency],
-        balanceAfterTo: balances[toCurrency]
-      };
-      transactions.unshift(transaction);
-      saveData();
-      updateBalances();
-      updateTransactionsUI();
-      updateRecentTransactions();
-      showNotification("تم التحويل بنجاح.");
-      document.getElementById("transferAmount").value = "";
-      document.getElementById("exchangeRate").value = "";
-      document.getElementById("transferComment").value = "";
-    }
-
-    function toggleRateMode() {
-        isMultiplyMode = !isMultiplyMode;
-        const rateModeBtn = document.getElementById('rateModeBtn');
-        rateModeBtn.textContent = isMultiplyMode ? '×' : '÷';
-        showNotification(`وضع سعر الصرف: ${isMultiplyMode ? 'ضرب' : 'قسمة'}`);
-    }
-
-    function performExpense() {
-      const person = document.getElementById("expensePerson").value;
-      const type = document.getElementById("expenseType").value;
-      const amount = parseFloat(document.getElementById("expenseAmount").value);
-      const currency = document.getElementById("expenseCurrency").value;
-      const details = document.getElementById("expenseDetails").value;
-
-      if (isNaN(amount) || amount <= 0) {
-        showNotification("الرجاء إدخال مبلغ صحيح وموجب.", true);
-        return;
-      }
-      if (!person.trim()) {
-        showNotification("الرجاء إدخال اسم العميل أو المورد.", true);
-        return;
-      }
-
-      if (type === "صادر") {
-        if (balances[currency] < amount) {
-          showNotification(`الرصيد غير كافٍ في ${currencies[currency]}.`, true);
-          return;
-        }
-        balances[currency] -= amount;
-      } else { // وارد
-        balances[currency] += amount;
-      }
-
-      const transaction = {
-        id: transactionIdCounter++,
-        type: type,
-        date: new Date().toLocaleString('ar-EG', { timeZone: 'Africa/Khartoum' }),
-        person: person,
-        amount: amount,
-        currency: currency,
-        details: details,
-        balanceAfter: balances[currency]
-      };
-      transactions.unshift(transaction);
-      saveData();
-      updateBalances();
-      updateTransactionsUI();
-      updateRecentTransactions();
-      showNotification(`تم تسجيل ${type} بنجاح.`);
-      document.getElementById("expensePerson").value = "";
-      document.getElementById("expenseAmount").value = "";
-      document.getElementById("expenseDetails").value = "";
-    }
-
-    function updateTransactionsUI() {
-      const list = document.getElementById("transactionsList");
-      if (!list) return;
-      list.innerHTML = "";
-      const searchTerm = document.getElementById("transactionSearch").value.toLowerCase();
-
-      const filteredTransactions = transactions.filter(t => 
-        JSON.stringify(t).toLowerCase().includes(searchTerm)
-      );
-
-      if (filteredTransactions.length === 0) {
-        list.innerHTML = "<p style='text-align: center; color: #666;'>لا توجد معاملات مطابقة.</p>";
-        return;
-      }
-
-      filteredTransactions.forEach(t => {
-        const item = document.createElement("div");
-        item.className = "balance-item"; // Reusing style
-        let detailsHtml = ``;
-        if (t.type === "تحويل") {
-          detailsHtml = `
-            <p><strong>النوع:</strong> ${t.type}</p>
-            <p><strong>من:</strong> ${currencies[t.fromCurrency]} (${t.fromCurrency})</p>
-            <p><strong>إلى:</strong> ${currencies[t.toCurrency]} (${t.toCurrency})</p>
-            <p><strong>المبلغ المحول:</strong> ${t.amount.toFixed(2)} ${t.fromCurrency}</p>
-            <p><strong>المبلغ المستلم:</strong> ${t.convertedAmount.toFixed(2)} ${t.toCurrency}</p>
-            <p><strong>سعر الصرف:</strong> ${t.exchangeRate}</p>
-            ${t.comment ? `<p><strong>تعليق:</strong> ${t.comment}</p>` : ''}
-            <p><strong>الرصيد بعد التحويل (${t.fromCurrency}):</strong> ${t.balanceAfterFrom.toFixed(2)}</p>
-            <p><strong>الرصيد بعد التحويل (${t.toCurrency}):</strong> ${t.balanceAfterTo.toFixed(2)}</p>
-          `;
-        } else if (t.type === "صادر" || t.type === "وارد") {
-          detailsHtml = `
-            <p><strong>النوع:</strong> ${t.type}</p>
-            <p><strong>الاسم:</strong> ${t.person}</p>
-            <p><strong>المبلغ:</strong> ${t.amount.toFixed(2)} ${t.currency}</p>
-            <p><strong>التفاصيل:</strong> ${t.details}</p>
-            <p><strong>الرصيد بعد العملية:</strong> ${t.balanceAfter.toFixed(2)} ${t.currency}</p>
-          `;
-        } else if (t.type === "تعديل رصيد") {
-            detailsHtml = `
-                <p><strong>النوع:</strong> ${t.type}</p>
-                <p><strong>العملة:</strong> ${t.currency}</p>
-                <p><strong>التفاصيل:</strong> ${t.details}</p>
-                <p><strong>الرصيد الجديد:</strong> ${t.balanceAfter.toFixed(2)} ${t.currency}</p>
-            `;
-        } else if (t.type === 
-
-
-"دين عميل") {
-            detailsHtml = `
-                <p><strong>النوع:</strong> ${t.type}</p>
-                <p><strong>العميل:</strong> ${t.clientName}</p>
-                <p><strong>نوع الدين:</strong> ${t.debtType}</p>
-                <p><strong>المبلغ:</strong> ${t.amount.toFixed(2)} ${t.currency}</p>
-                <p><strong>التفاصيل:</strong> ${t.comment}</p>
-            `;
-        }
-
-        item.innerHTML = `
-          <div style="flex: 1;">
-            <p><strong>رقم المعاملة:</strong> ${t.id}</p>
-            <p><strong>التاريخ:</strong> ${t.date}</p>
-            ${detailsHtml}
-          </div>
-          <button class="btn-danger" onclick="deleteTransaction(${t.id})" style="width: auto; margin: 0; padding: 5px 10px;">حذف</button>
-        `;
-        list.appendChild(item);
-      });
-    }
-
-    function searchTransactions() {
-      updateTransactionsUI();
-    }
-
-    function deleteTransaction(id) {
-      if (confirm("هل أنت متأكد من حذف هذه المعاملة؟")) {
-        transactions = transactions.filter(t => t.id !== id);
-        saveData();
-        updateTransactionsUI();
-        updateRecentTransactions();
-        showNotification("تم حذف المعاملة بنجاح.");
-      }
-    }
-
-    function updateRecentTransactions() {
-      const list = document.getElementById("recentTransactions");
-      if (!list) return;
-      list.innerHTML = "";
-      const recentTransactions = transactions.slice(0, 5);
-      if (recentTransactions.length === 0) {
-        list.innerHTML = "<p style='text-align: center; color: #666;'>لا توجد معاملات حديثة.</p>";
-        return;
-      }
-      recentTransactions.forEach(t => {
-        const item = document.createElement("div");
-        item.className = "balance-item";
-        let summary = "";
-        if (t.type === "تحويل") {
-          summary = `تحويل ${t.amount.toFixed(2)} ${t.fromCurrency} إلى ${t.convertedAmount.toFixed(2)} ${t.toCurrency}`;
-        } else if (t.type === "صادر" || t.type === "وارد") {
-          summary = `${t.type}: ${t.amount.toFixed(2)} ${t.currency} - ${t.person}`;
-        } else if (t.type === "تعديل رصيد") {
-          summary = `تعديل رصيد ${t.currency}: ${t.amount > 0 ? '+' : ''}${t.amount.toFixed(2)}`;
-        } else if (t.type === "دين عميل") {
-          summary = `دين ${t.debtType}: ${t.amount.toFixed(2)} ${t.currency} - ${t.clientName}`;
-        }
-        item.innerHTML = `<span>${summary}</span><span style="font-size: 0.8em; color: #666;">${t.date}</span>`;
-        list.appendChild(item);
-      });
-    }
-
-    function resetAllData() {
-      if (confirm("هل أنت متأكد من مسح جميع البيانات؟ هذا الإجراء لا يمكن التراجع عنه.")) {
-        balances = { "SDG": 0, "QAR": 0 };
-        currencies = { "SDG": "جنيه سوداني", "QAR": "ريال قطري" };
-        transactions = [];
-        clients = {};
-        transactionIdCounter = 1101;
-        saveData();
-        updateAllUI();
-        showNotification("تم مسح جميع البيانات بنجاح.");
-      }
-    }
-
-    // --- Client Debt Management ---
-    function toggleAddClient() {
-      const section = document.getElementById("addClientSection");
-      section.style.display = section.style.display === "none" ? "block" : "none";
-      document.getElementById("removeClientSection").style.display = "none";
-    }
-
-    function toggleRemoveClient() {
-      const section = document.getElementById("removeClientSection");
-      section.style.display = section.style.display === "none" ? "block" : "none";
-      document.getElementById("addClientSection").style.display = "none";
-      updateRemoveClientDropdown();
-    }
-
-    function addClientDebt() {
-      const name = document.getElementById("newClientName").value.trim();
-      const phone = document.getElementById("newClientPhone").value.trim();
-      const note = document.getElementById("newClientNote").value.trim();
-
-      if (!name) {
-        showNotification("الرجاء إدخال اسم العميل.", true);
-        return;
-      }
-
-      const clientId = Date.now().toString();
-      clients[clientId] = {
-        name: name,
-        phone: phone,
-        note: note,
-        debts: []
-      };
-
-      saveData();
-      updateClientsListDisplay();
-      updateOverallDebtSummary();
-      showNotification(`تم إضافة العميل ${name} بنجاح.`);
-      document.getElementById("newClientName").value = "";
-      document.getElementById("newClientPhone").value = "";
-      document.getElementById("newClientNote").value = "";
-      document.getElementById("addClientSection").style.display = "none";
-    }
-
-    function updateRemoveClientDropdown() {
-      const dropdown = document.getElementById("removeClientDropdown");
-      dropdown.innerHTML = "<option value=''>اختر عميلاً لحذفه</option>";
-      for (const [id, client] of Object.entries(clients)) {
-        const option = document.createElement("option");
-        option.value = id;
-        option.textContent = client.name;
-        dropdown.appendChild(option);
-      }
-    }
-
-    function removeClientFromDropdown() {
-      const dropdown = document.getElementById("removeClientDropdown");
-      const clientId = dropdown.value;
-      if (!clientId) {
-        showNotification("الرجاء اختيار عميل لحذفه.", true);
-        return;
-      }
-
-      const clientName = clients[clientId].name;
-      if (confirm(`هل أنت متأكد من حذف العميل ${clientName} وجميع سجلات ديونه؟`)) {
-        // Remove client debt transactions from main transactions list
-        transactions = transactions.filter(t => !(t.type === "دين عميل" && t.clientId === clientId));
-        delete clients[clientId];
-        saveData();
-        updateClientsListDisplay();
-        updateOverallDebtSummary();
-        updateTransactionsUI();
-        updateRecentTransactions();
-        showNotification(`تم حذف العميل ${clientName} بنجاح.`);
-        document.getElementById("removeClientSection").style.display = "none";
-      }
-    }
-
-    function updateClientsListDisplay() {
-      const list = document.getElementById("clientsListDisplay");
-      if (!list) return;
-      list.innerHTML = "";
-
-      if (Object.keys(clients).length === 0) {
-        list.innerHTML = "<p style='text-align: center; color: #666;'>لا يوجد عملاء مسجلون.</p>";
-        return;
-      }
-
-      for (const [id, client] of Object.entries(clients)) {
-        const totalDebt = calculateClientTotalDebt(client.debts);
-        const item = document.createElement("div");
-        item.className = "transaction-button";
-        item.style.backgroundColor = "#f8f9fa";
-        item.style.color = "#333";
-        item.onclick = () => showClientDebtDetails(id);
-
-        let debtSummary = "";
-        if (totalDebt.length === 0) {
-          debtSummary = "لا توجد ديون";
-        } else {
-          debtSummary = totalDebt.map(debt => `${debt.amount.toFixed(2)} ${debt.currency} ${debt.type}`).join(" | ");
-        }
-
-        item.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <strong>${client.name}</strong>
-              ${client.phone ? `<br><small>📞 ${client.phone}</small>` : ''}
-              ${client.note ? `<br><small>📝 ${client.note}</small>` : ''}
-            </div>
-            <div style="text-align: left; font-size: 0.9em;">
-              ${debtSummary}
-            </div>
-          </div>
-        `;
-        list.appendChild(item);
-      }
-    }
-
-    function calculateClientTotalDebt(debts) {
-      const totals = {};
-      debts.forEach(debt => {
-        if (!totals[debt.currency]) {
-          totals[debt.currency] = { لك: 0, له: 0 };
-        }
-        totals[debt.currency][debt.type] += debt.amount;
-      });
-
-      const result = [];
-      for (const [currency, amounts] of Object.entries(totals)) {
-        const net = amounts.لك - amounts.له;
-        if (net !== 0) {
-          result.push({
-            currency: currency,
-            amount: Math.abs(net),
-            type: net > 0 ? "لك" : "له"
-          });
-        }
-      }
-      return result;
-    }
-
-    function updateOverallDebtSummary() {
-      const summary = document.getElementById("overallDebtSummary");
-      if (!summary) return;
-
-      const allDebts = [];
-      for (const client of Object.values(clients)) {
-        allDebts.push(...client.debts);
-      }
-
-      const totalDebt = calculateClientTotalDebt(allDebts);
-      if (totalDebt.length === 0) {
-        summary.innerHTML = "<span>إجمالي الديون:</span> <span>لا توجد ديون</span>";
-      } else {
-        const debtText = totalDebt.map(debt => `${debt.amount.toFixed(2)} ${debt.currency} ${debt.type}`).join(" | ");
-        summary.innerHTML = `<span>إجمالي الديون:</span> <span>${debtText}</span>`;
-      }
-    }
-
-    function showClientDebtDetails(clientId) {
-      currentDebtClient = clientId;
-      const client = clients[clientId];
-      document.getElementById("clientDetailsName").textContent = client.name;
-      updateClientDebtSummary();
-      updateClientDebtDetails();
-      showPage("debtDetailsPage");
-    }
-
-    function updateClientDebtSummary() {
-      const summary = document.getElementById("clientDebtSummary");
-      if (!summary || !currentDebtClient) return;
-
-      const client = clients[currentDebtClient];
-      const totalDebt = calculateClientTotalDebt(client.debts);
-      if (totalDebt.length === 0) {
-        summary.innerHTML = "<span>إجمالي الديون:</span> <span>لا توجد ديون</span>";
-      } else {
-        const debtText = totalDebt.map(debt => `${debt.amount.toFixed(2)} ${debt.currency} ${debt.type}`).join(" | ");
-        summary.innerHTML = `<span>إجمالي الديون:</span> <span>${debtText}</span>`;
-      }
-    }
-
-    function addOrUpdateClientDebt() {
-      if (!currentDebtClient) return;
-
-      const type = document.getElementById("clientDebtType").value;
-      const amount = parseFloat(document.getElementById("clientDebtAmount").value);
-      const currency = document.getElementById("clientDebtCurrency").value;
-      const comment = document.getElementById("clientDebtComment").value.trim();
-
-      if (isNaN(amount) || amount <= 0) {
-        showNotification("الرجاء إدخال مبلغ صحيح وموجب.", true);
-        return;
-      }
-
-      const debt = {
-        type: type,
-        amount: amount,
-        currency: currency,
-        comment: comment,
-        date: new Date().toLocaleString('ar-EG', { timeZone: 'Africa/Khartoum' })
-      };
-
-      clients[currentDebtClient].debts.push(debt);
-
-      // Add to main transactions list
-      const transaction = {
-        id: transactionIdCounter++,
-        type: "دين عميل",
-        date: debt.date,
-        clientId: currentDebtClient,
-        clientName: clients[currentDebtClient].name,
-        debtType: type,
-        amount: amount,
-        currency: currency,
-        comment: comment
-      };
-      transactions.unshift(transaction);
-
-      saveData();
-      updateClientDebtSummary();
-      updateClientDebtDetails();
-      updateOverallDebtSummary();
-      updateTransactionsUI();
-      updateRecentTransactions();
-      showNotification("تم إضافة الدين بنجاح.");
-      document.getElementById("clientDebtAmount").value = "";
-      document.getElementById("clientDebtComment").value = "";
-    }
-
-    function updateClientDebtDetails() {
-      const container = document.getElementById("clientDebtDetails");
-      if (!container || !currentDebtClient) return;
-
-      const client = clients[currentDebtClient];
-      container.innerHTML = "";
-
-      if (client.debts.length === 0) {
-        container.innerHTML = "<p style='text-align: center; color: #666;'>لا توجد سجلات ديون لهذا العميل.</p>";
-        return;
-      }
-
-      client.debts.slice().reverse().forEach((debt, index) => {
-        const item = document.createElement("div");
-        item.className = "debt-record";
-        item.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <p><strong>النوع:</strong> ${debt.type}</p>
-              <p><strong>المبلغ:</strong> ${debt.amount.toFixed(2)} ${debt.currency}</p>
-              <p><strong>التفاصيل:</strong> ${debt.comment}</p>
-              <p><strong>التاريخ:</strong> ${debt.date}</p>
-            </div>
-            <button class="btn-danger" onclick="deleteClientDebt(${client.debts.length - 1 - index})" style="width: auto; margin: 0; padding: 5px 10px;">حذف</button>
-          </div>
-        `;
-        container.appendChild(item);
-      });
-    }
-
-    function deleteClientDebt(debtIndex) {
-      if (!currentDebtClient) return;
-      if (confirm("هل أنت متأكد من حذف هذا السجل؟")) {
-        const client = clients[currentDebtClient];
-        const deletedDebt = client.debts[debtIndex];
-        client.debts.splice(debtIndex, 1);
-
-        // Remove corresponding transaction from main list
-        transactions = transactions.filter(t => !(
-          t.type === "دين عميل" && 
-          t.clientId === currentDebtClient && 
-          t.amount === deletedDebt.amount && 
-          t.currency === deletedDebt.currency && 
-          t.date === deletedDebt.date
-        ));
-
-        saveData();
-        updateClientDebtSummary();
-        updateClientDebtDetails();
-        updateOverallDebtSummary();
-        updateTransactionsUI();
-        updateRecentTransactions();
-        showNotification("تم حذف السجل بنجاح.");
-      }
-    }
-
-    // --- Notification System ---
+    // --- UI Functions ---
     function showNotification(message, isError = false) {
-      const notification = document.createElement("div");
+      const notification = document.createElement('div');
       notification.className = `notification ${isError ? 'error' : ''}`;
       notification.textContent = message;
       document.body.appendChild(notification);
@@ -1126,31 +488,555 @@
       }, 3000);
     }
 
-    // --- Screenshot functionality ---
-    function captureScreenshot() {
-      const element = document.querySelector('.page.active-page') || document.getElementById('main-content');
-      html2canvas(element, {
-        backgroundColor: '#f8f9fa',
-        scale: 2,
-        useCORS: true
-      }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = `financial-report-${new Date().toISOString().split('T')[0]}.png`;
-        link.href = canvas.toDataURL();
-        link.click();
-        showNotification('تم حفظ لقطة الشاشة بنجاح.');
-      }).catch(error => {
-        console.error('Error capturing screenshot:', error);
-        showNotification('حدث خطأ أثناء حفظ لقطة الشاشة.', true);
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active-page');
+      });
+      document.getElementById(pageId).classList.add('active-page');
+      document.getElementById('main-content').style.display = 'none';
+      document.getElementById('main-header').style.display = 'none';
+      document.getElementById('page-header').style.display = 'flex';
+      document.getElementById('page-title').textContent = document.querySelector(`#${pageId} h2`).textContent;
+      updateAllUI();
+    }
+
+    function goBack() {
+      document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active-page');
+      });
+      document.getElementById('main-content').style.display = 'grid';
+      document.getElementById('main-header').style.display = 'block';
+      document.getElementById('page-header').style.display = 'none';
+      updateAllUI();
+    }
+
+    function showSettingsPage(settingType) {
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.remove('active-page');
+        });
+        document.getElementById('settings-page').classList.remove('active-page'); // Hide main settings
+        document.getElementById(`${settingType}-page`).classList.add('active-page');
+        document.getElementById('main-content').style.display = 'none';
+        document.getElementById('main-header').style.display = 'none';
+        document.getElementById('page-header').style.display = 'flex';
+        document.getElementById('page-title').textContent = document.querySelector(`#${settingType}-page h2`).textContent;
+        updateAllUI();
+    }
+
+    function updateAllUI() {
+        updateBalancesList();
+        updateCurrencyDropdowns();
+        updateActiveCurrenciesList();
+        updateTransactionsList();
+        updateClientsListDisplay();
+        updateClientDebtDetails();
+        updateRemoveClientDropdown();
+    }
+
+    // --- Balances Functions ---
+    function updateBalancesList() {
+      const balancesList = document.getElementById('balancesList');
+      balancesList.innerHTML = '';
+      for (const currency in balances) {
+        const balanceItem = document.createElement('div');
+        balanceItem.className = 'balance-item';
+        balanceItem.innerHTML = `<span>${currencies[currency] || currency}:</span> <span>${balances[currency].toFixed(2)} ${currency}</span>`;
+        balancesList.appendChild(balanceItem);
+      }
+    }
+
+    function updateBalance() {
+      const currency = document.getElementById('balance-currency-select').value;
+      const newBalance = parseFloat(document.getElementById('new-balance').value);
+      if (isNaN(newBalance)) {
+        showNotification('الرجاء إدخال مبلغ صحيح.', true);
+        return;
+      }
+      balances[currency] = newBalance;
+      saveData();
+      showNotification(`تم تحديث رصيد ${currencies[currency]} بنجاح.`);
+      updateBalancesList();
+    }
+
+    // --- Currency Functions ---
+    function updateCurrencyDropdowns() {
+      const dropdowns = ['fromCurrency', 'toCurrency', 'expenseCurrency', 'balance-currency-select', 'clientDebtCurrency'];
+      dropdowns.forEach(id => {
+        const selectElement = document.getElementById(id);
+        if (selectElement) {
+          selectElement.innerHTML = '';
+          for (const code in currencies) {
+            const option = document.createElement('option');
+            option.value = code;
+            option.textContent = currencies[code];
+            selectElement.appendChild(option);
+          }
+        }
       });
     }
 
-    // Initialize the app when DOM is loaded
-    document.addEventListener('DOMContentLoaded', function() {
-      // Firebase auth state will be handled by onAuthStateChanged
-      console.log('App initialized');
-    });
-  </script>
-</body>
-</html>
+    function addCurrency() {
+      const selectElement = document.getElementById('currency-select');
+      const currencyCode = selectElement.value;
+      const currencyName = selectElement.options[selectElement.selectedIndex].text;
+
+      if (!currencies[currencyCode]) {
+        currencies[currencyCode] = currencyName;
+        balances[currencyCode] = 0; // Initialize balance for new currency
+        saveData();
+        showNotification(`تم إضافة ${currencyName} بنجاح.`);
+        updateAllUI();
+      } else {
+        showNotification(`${currencyName} موجودة بالفعل.`, true);
+      }
+    }
+
+    function updateActiveCurrenciesList() {
+      const listElement = document.getElementById('active-currencies-list');
+      listElement.innerHTML = '';
+      for (const code in currencies) {
+        const item = document.createElement('div');
+        item.className = 'balance-item';
+        item.innerHTML = `<span>${currencies[code]} (${code})</span> <button class="btn-danger" onclick="removeCurrency('${code}')">حذف</button>`;
+        listElement.appendChild(item);
+      }
+    }
+
+    function removeCurrency(code) {
+      if (confirm(`هل أنت متأكد أنك تريد حذف ${currencies[code]}؟ سيتم حذف جميع الأرصدة والمعاملات المتعلقة بهذه العملة.`)) {
+        delete currencies[code];
+        delete balances[code];
+        transactions = transactions.filter(t => t.currency !== code && !(t.fromCurrency === code || t.toCurrency === code));
+        // Also remove client debts in this currency
+        for (const clientId in clients) {
+            clients[clientId].debts = clients[clientId].debts.filter(d => d.currency !== code);
+        }
+        saveData();
+        showNotification(`تم حذف ${code} بنجاح.`);
+        updateAllUI();
+      }
+    }
+
+    // --- Transfers Functions ---
+    function toggleRateMode() {
+        isMultiplyMode = !isMultiplyMode;
+        const rateModeBtn = document.getElementById('rateModeBtn');
+        rateModeBtn.textContent = isMultiplyMode ? '×' : '÷';
+        showNotification(isMultiplyMode ? 'وضع سعر الصرف: ضرب' : 'وضع سعر الصرف: قسمة');
+    }
+
+    function performTransfer() {
+      const fromCurrency = document.getElementById('fromCurrency').value;
+      const toCurrency = document.getElementById('toCurrency').value;
+      const amount = parseFloat(document.getElementById('transferAmount').value);
+      const exchangeRate = parseFloat(document.getElementById('exchangeRate').value);
+      const comment = document.getElementById('transferComment').value;
+
+      if (fromCurrency === toCurrency) {
+        showNotification('لا يمكن التحويل بين نفس العملة.', true);
+        return;
+      }
+      if (isNaN(amount) || amount <= 0) {
+        showNotification('الرجاء إدخال مبلغ صحيح للتحويل.', true);
+        return;
+      }
+      if (balances[fromCurrency] < amount) {
+        showNotification(`الرصيد غير كافٍ في ${currencies[fromCurrency]}.`, true);
+        return;
+      }
+      if (isNaN(exchangeRate) || exchangeRate <= 0) {
+        showNotification('الرجاء إدخال سعر صرف صحيح.', true);
+        return;
+      }
+
+      let convertedAmount;
+      if (isMultiplyMode) {
+          convertedAmount = amount * exchangeRate;
+      } else {
+          convertedAmount = amount / exchangeRate;
+      }
+
+      balances[fromCurrency] -= amount;
+      balances[toCurrency] = (balances[toCurrency] || 0) + convertedAmount;
+
+      const transaction = {
+        id: transactionIdCounter++,
+        type: 'تحويل',
+        fromCurrency: fromCurrency,
+        toCurrency: toCurrency,
+        amount: amount,
+        convertedAmount: convertedAmount,
+        exchangeRate: exchangeRate,
+        comment: comment,
+        date: new Date().toISOString()
+      };
+      transactions.unshift(transaction); // Add to beginning
+      saveData();
+      showNotification('تم التحويل بنجاح.');
+      document.getElementById('transferAmount').value = '';
+      document.getElementById('transferComment').value = '';
+      updateAllUI();
+    }
+
+    // --- Expenses Functions ---
+    function performExpense() {
+      const person = document.getElementById('expensePerson').value;
+      const type = document.getElementById('expenseType').value;
+      const amount = parseFloat(document.getElementById('expenseAmount').value);
+      const currency = document.getElementById('expenseCurrency').value;
+      const details = document.getElementById('expenseDetails').value;
+
+      if (!person || isNaN(amount) || amount <= 0 || !currency) {
+        showNotification('الرجاء إدخال جميع الحقول المطلوبة بشكل صحيح.', true);
+        return;
+      }
+
+      if (type === 'صادر' && balances[currency] < amount) {
+        showNotification(`الرصيد غير كافٍ في ${currencies[currency]}.`, true);
+        return;
+      }
+
+      if (type === 'صادر') {
+        balances[currency] -= amount;
+      } else { // وارد
+        balances[currency] = (balances[currency] || 0) + amount;
+      }
+
+      const transaction = {
+        id: transactionIdCounter++,
+        type: type,
+        person: person,
+        amount: amount,
+        currency: currency,
+        details: details,
+        date: new Date().toISOString()
+      };
+      transactions.unshift(transaction); // Add to beginning
+      saveData();
+      showNotification(`تم تسجيل ${type} بنجاح.`);
+      document.getElementById('expensePerson').value = '';
+      document.getElementById('expenseAmount').value = '';
+      document.getElementById('expenseDetails').value = '';
+      updateAllUI();
+    }
+
+    // --- Transactions Functions ---
+    function updateTransactionsList() {
+      const transactionsList = document.getElementById('transactionsList');
+      const recentTransactions = document.getElementById('recentTransactions');
+      transactionsList.innerHTML = '';
+      recentTransactions.innerHTML = '';
+
+      const sortedTransactions = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      sortedTransactions.forEach((t, index) => {
+        const transactionItem = document.createElement('div');
+        transactionItem.className = 'balance-item';
+        let detailsHtml = ``;
+        if (t.type === 'تحويل') {
+          detailsHtml = `تحويل: ${t.amount.toFixed(2)} ${t.fromCurrency} إلى ${t.convertedAmount.toFixed(2)} ${t.toCurrency} بسعر ${t.exchangeRate} ${t.comment ? `(${t.comment})` : ''}`;
+        } else { // صادر أو وارد
+          detailsHtml = `${t.type}: ${t.amount.toFixed(2)} ${t.currency} من/إلى ${t.person} ${t.details ? `(${t.details})` : ''}`;
+        }
+        transactionItem.innerHTML = `<span>${new Date(t.date).toLocaleString()} - ${detailsHtml}</span>`;
+        
+        if (index < 5) { // Show only 5 recent transactions
+            recentTransactions.appendChild(transactionItem.cloneNode(true));
+        }
+        transactionsList.appendChild(transactionItem);
+      });
+    }
+
+    function searchTransactions() {
+        const searchTerm = document.getElementById('transactionSearch').value.toLowerCase();
+        const transactionsList = document.getElementById('transactionsList');
+        transactionsList.innerHTML = '';
+
+        const filteredTransactions = transactions.filter(t => {
+            const date = new Date(t.date).toLocaleString().toLowerCase();
+            const type = t.type.toLowerCase();
+            const comment = t.comment ? t.comment.toLowerCase() : '';
+            const person = t.person ? t.person.toLowerCase() : '';
+            const details = t.details ? t.details.toLowerCase() : '';
+            const fromCurrency = t.fromCurrency ? t.fromCurrency.toLowerCase() : '';
+            const toCurrency = t.toCurrency ? t.toCurrency.toLowerCase() : '';
+            const currency = t.currency ? t.currency.toLowerCase() : '';
+
+            return date.includes(searchTerm) || type.includes(searchTerm) || comment.includes(searchTerm) ||
+                   person.includes(searchTerm) || details.includes(searchTerm) || fromCurrency.includes(searchTerm) ||
+                   toCurrency.includes(searchTerm) || currency.includes(searchTerm);
+        });
+
+        filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (filteredTransactions.length === 0) {
+            transactionsList.innerHTML = '<p style="text-align: center; margin-top: 20px;">لا توجد معاملات مطابقة.</p>';
+            return;
+        }
+
+        filteredTransactions.forEach(t => {
+            const transactionItem = document.createElement('div');
+            transactionItem.className = 'balance-item';
+            let detailsHtml = ``;
+            if (t.type === 'تحويل') {
+                detailsHtml = `تحويل: ${t.amount.toFixed(2)} ${t.fromCurrency} إلى ${t.convertedAmount.toFixed(2)} ${t.toCurrency} بسعر ${t.exchangeRate} ${t.comment ? `(${t.comment})` : ''}`;
+            } else { // صادر أو وارد
+                detailsHtml = `${t.type}: ${t.amount.toFixed(2)} ${t.currency} من/إلى ${t.person} ${t.details ? `(${t.details})` : ''}`;
+            }
+            transactionItem.innerHTML = `<span>${new Date(t.date).toLocaleString()} - ${detailsHtml}</span>`;
+            transactionsList.appendChild(transactionItem);
+        });
+    }
+
+    // --- Client Debts Functions ---
+    function toggleAddClient() {
+        const addSection = document.getElementById('addClientSection');
+        addSection.style.display = addSection.style.display === 'none' ? 'block' : 'none';
+        document.getElementById('removeClientSection').style.display = 'none';
+    }
+
+    function toggleRemoveClient() {
+        const removeSection = document.getElementById('removeClientSection');
+        removeSection.style.display = removeSection.style.display === 'none' ? 'block' : 'none';
+        document.getElementById('addClientSection').style.display = 'none';
+        updateRemoveClientDropdown();
+    }
+
+    function addClientDebt() {
+        const name = document.getElementById('newClientName').value.trim();
+        const phone = document.getElementById('newClientPhone').value.trim();
+        const note = document.getElementById('newClientNote').value.trim();
+
+        if (!name) {
+            showNotification('الرجاء إدخال اسم العميل.', true);
+            return;
+        }
+
+        const clientId = Date.now().toString(); // Simple unique ID
+        clients[clientId] = {
+            name: name,
+            phone: phone,
+            note: note,
+            debts: [] // Array to store individual debt records
+        };
+        saveData();
+        showNotification(`تم إضافة العميل ${name} بنجاح.`);
+        document.getElementById('newClientName').value = '';
+        document.getElementById('newClientPhone').value = '';
+        document.getElementById('newClientNote').value = '';
+        updateClientsListDisplay();
+        updateRemoveClientDropdown();
+    }
+
+    function removeClientFromDropdown() {
+        const selectElement = document.getElementById('removeClientDropdown');
+        const clientId = selectElement.value;
+
+        if (!clientId) {
+            showNotification('الرجاء اختيار عميل للحذف.', true);
+            return;
+        }
+
+        if (confirm(`هل أنت متأكد أنك تريد حذف العميل ${clients[clientId].name} وجميع ديونه؟`)) {
+            delete clients[clientId];
+            saveData();
+            showNotification('تم حذف العميل بنجاح.');
+            updateClientsListDisplay();
+            updateRemoveClientDropdown();
+        }
+    }
+
+    function updateClientsListDisplay() {
+        const listElement = document.getElementById('clientsListDisplay');
+        listElement.innerHTML = '';
+        if (Object.keys(clients).length === 0) {
+            listElement.innerHTML = '<p style="text-align: center; margin-top: 20px;">لا يوجد عملاء مسجلون.</p>';
+            document.getElementById('overallDebtSummary').innerHTML = '<span>إجمالي الديون:</span> <span>0.00</span>';
+            return;
+        }
+
+        let overallDebt = {};
+
+        for (const clientId in clients) {
+            const client = clients[clientId];
+            const clientItem = document.createElement('div');
+            clientItem.className = 'balance-item';
+            clientItem.style.cursor = 'pointer';
+            clientItem.onclick = () => showClientDebtDetails(clientId);
+
+            let clientDebtSummary = {};
+            client.debts.forEach(d => {
+                if (!clientDebtSummary[d.currency]) {
+                    clientDebtSummary[d.currency] = 0;
+                }
+                clientDebtSummary[d.currency] += (d.type === 'لك' ? d.amount : -d.amount);
+            });
+
+            let debtText = '';
+            for (const currency in clientDebtSummary) {
+                const amount = clientDebtSummary[currency];
+                if (amount !== 0) {
+                    debtText += `${amount.toFixed(2)} ${currency} ${amount > 0 ? 'لك' : 'له'}، `;
+                }
+                // Add to overall debt
+                if (!overallDebt[currency]) {
+                    overallDebt[currency] = 0;
+                }
+                overallDebt[currency] += amount;
+            }
+            debtText = debtText ? debtText.slice(0, -2) : 'لا توجد ديون';
+
+            clientItem.innerHTML = `<span>${client.name} (${client.phone || 'لا يوجد هاتف'})</span> <span>${debtText} <i class="fas fa-chevron-left"></i></span>`;
+            listElement.appendChild(clientItem);
+        }
+
+        let overallDebtHtml = '<span>إجمالي الديون:</span> <span>';
+        let hasOverallDebt = false;
+        for (const currency in overallDebt) {
+            if (overallDebt[currency] !== 0) {
+                overallDebtHtml += `${overallDebt[currency].toFixed(2)} ${currency} ${overallDebt[currency] > 0 ? 'لك' : 'له'}، `;
+                hasOverallDebt = true;
+            }
+        }
+        if (hasOverallDebt) {
+            overallDebtHtml = overallDebtHtml.slice(0, -2) + '</span>';
+        } else {
+            overallDebtHtml += '0.00</span>';
+        }
+        document.getElementById('overallDebtSummary').innerHTML = overallDebtHtml;
+    }
+
+    function updateRemoveClientDropdown() {
+        const selectElement = document.getElementById('removeClientDropdown');
+        selectElement.innerHTML = '<option value="">اختر عميل</option>';
+        for (const clientId in clients) {
+            const option = document.createElement('option');
+            option.value = clientId;
+            option.textContent = clients[clientId].name;
+            selectElement.appendChild(option);
+        }
+    }
+
+    function showClientDebtDetails(clientId) {
+        currentDebtClient = clientId;
+        const client = clients[clientId];
+        document.getElementById('clientDetailsName').textContent = client.name;
+        
+        showPage('debtDetailsPage');
+        updateClientDebtDetails();
+    }
+
+    function updateClientDebtDetails() {
+        if (!currentDebtClient) return;
+
+        const client = clients[currentDebtClient];
+        const debtRecordsContainer = document.getElementById('clientDebtDetails');
+        debtRecordsContainer.innerHTML = '';
+
+        let clientDebtSummary = {};
+        client.debts.forEach(d => {
+            if (!clientDebtSummary[d.currency]) {
+                clientDebtSummary[d.currency] = 0;
+            }
+            clientDebtSummary[d.currency] += (d.type === 'لك' ? d.amount : -d.amount);
+        });
+
+        let debtSummaryHtml = '<span>إجمالي الدين:</span> <span>';
+        let hasDebt = false;
+        for (const currency in clientDebtSummary) {
+            if (clientDebtSummary[currency] !== 0) {
+                debtSummaryHtml += `${clientDebtSummary[currency].toFixed(2)} ${currency} ${clientDebtSummary[currency] > 0 ? 'لك' : 'له'}، `;
+                hasDebt = true;
+            }
+        }
+        if (hasDebt) {
+            debtSummaryHtml = debtSummaryHtml.slice(0, -2) + '</span>';
+        } else {
+            debtSummaryHtml += '0.00</span>';
+        }
+        document.getElementById('clientDebtSummary').innerHTML = debtSummaryHtml;
+
+        if (client.debts.length === 0) {
+            debtRecordsContainer.innerHTML = '<p style="text-align: center; margin-top: 20px;">لا توجد سجلات ديون لهذا العميل.</p>';
+            return;
+        }
+
+        client.debts.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date descending
+
+        client.debts.forEach((record, index) => {
+            const recordItem = document.createElement('div');
+            recordItem.className = 'debt-record';
+            recordItem.innerHTML = `
+                <p><strong>التاريخ:</strong> ${new Date(record.date).toLocaleString()}</p>
+                <p><strong>النوع:</strong> ${record.type}</p>
+                <p><strong>المبلغ:</strong> ${record.amount.toFixed(2)} ${record.currency}</p>
+                <p><strong>التفاصيل:</strong> ${record.comment || 'لا توجد تفاصيل'}</p>
+                <button class="btn-danger" onclick="deleteClientDebtRecord(${index})">حذف السجل</button>
+            `;
+            debtRecordsContainer.appendChild(recordItem);
+        });
+    }
+
+    function addOrUpdateClientDebt() {
+        if (!currentDebtClient) return;
+
+        const type = document.getElementById('clientDebtType').value;
+        const amount = parseFloat(document.getElementById('clientDebtAmount').value);
+        const currency = document.getElementById('clientDebtCurrency').value;
+        const comment = document.getElementById('clientDebtComment').value.trim();
+
+        if (isNaN(amount) || amount <= 0 || !currency) {
+            showNotification('الرجاء إدخال مبلغ صحيح واختيار العملة.', true);
+            return;
+        }
+
+        const newRecord = {
+            type: type,
+            amount: amount,
+            currency: currency,
+            comment: comment,
+            date: new Date().toISOString()
+        };
+
+        clients[currentDebtClient].debts.push(newRecord);
+        saveData();
+        showNotification('تم إضافة سجل الدين بنجاح.');
+        document.getElementById('clientDebtAmount').value = '';
+        document.getElementById('clientDebtComment').value = '';
+        updateClientDebtDetails();
+        updateClientsListDisplay(); // Update overall debt summary
+    }
+
+    function deleteClientDebtRecord(index) {
+        if (!currentDebtClient) return;
+
+        if (confirm('هل أنت متأكد أنك تريد حذف سجل الدين هذا؟')) {
+            clients[currentDebtClient].debts.splice(index, 1);
+            saveData();
+            showNotification('تم حذف سجل الدين بنجاح.');
+            updateClientDebtDetails();
+            updateClientsListDisplay(); // Update overall debt summary
+        }
+    }
+
+    // --- Reset Data ---
+    function resetAllData() {
+      if (confirm('هل أنت متأكد أنك تريد مسح جميع بياناتك؟ لا يمكن التراجع عن هذا الإجراء!')) {
+        balances = { "SDG": 0, "QAR": 0 };
+        currencies = { "SDG": "جنيه سوداني", "QAR": "ريال قطري" };
+        transactions = [];
+        clients = {};
+        transactionIdCounter = 1101;
+        saveData();
+        showNotification('تم مسح جميع البيانات بنجاح.');
+        updateAllUI();
+      }
+    }
+
+    // Initial load and UI update
+    // This will be called by onAuthStateChanged after user logs in.
+});
+
+</script>
+
 
