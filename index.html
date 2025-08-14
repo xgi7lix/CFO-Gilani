@@ -168,7 +168,14 @@
         </div>
         <div class="form-row">
           <label for="signup-password">كلمة المرور</label>
-          <input id="signup-password" type="password" placeholder="6 أحرف على الأقل" required>
+          <input id="signup-password" type="password" placeholder="حرف كبير، صغير، رقم، رمز خاص" required>
+          <div id="password-requirements" style="font-size:12px;color:#666;margin-top:4px;display:none">
+            <div>• حرف كبير واحد على الأقل (A-Z)</div>
+            <div>• حرف صغير واحد على الأقل (a-z)</div>
+            <div>• رقم واحد على الأقل (0-9)</div>
+            <div>• رمز خاص واحد على الأقل ($&#@!%*?&)</div>
+            <div>• 8 أحرف على الأقل</div>
+          </div>
         </div>
         <button type="button" onclick="handleSignup()">إنشاء حساب</button>
         <div class="loader" id="signup-loader"></div>
@@ -348,7 +355,7 @@
         </div>
         <div class="page" style="display:block;background:#fff;padding:10px;border-radius:8px">
           <h3 style="margin:0 0 10px">العملات المضافة</h3>
-          <div id="active-currencies-list"></div>
+          <div id="currenciesList"></div>
         </div>
       </div>
     </div>
@@ -356,586 +363,818 @@
     <!-- إدارة الرصيد -->
     <div class="container page" id="balance-settings-page">
       <div class="page-header"><i class="fas fa-wallet"></i><h2>إدارة الرصيد</h2></div>
-      <div class="balance-item" style="flex-direction:column;align-items:stretch">
-        <div class="form-row"><label>العملة:</label><select id="balance-currency-select"></select></div>
-        <div class="form-row"><label>المبلغ الجديد:</label><input id="new-balance" type="number" placeholder="0.00"></div>
-        <button type="button" onclick="updateBalance()"><i class="fas fa-floppy-disk"></i> حفظ</button>
-      </div>
+      <div class="form-row"><label>العملة:</label><select id="balance-currency"></select></div>
+      <div class="form-row"><label>الرصيد الحالي:</label><input id="current-balance" type="number" step="0.01" placeholder="0.00" readonly></div>
+      <div class="form-row"><label>المبلغ الجديد:</label><input id="new-balance" type="number" step="0.01" placeholder="أدخل الرصيد الجديد"></div>
+      <button type="button" onclick="updateBalance()"><i class="fas fa-check"></i> تحديث الرصيد</button>
     </div>
   </div>
 
   <script>
-    /* ====== أدوات مساعدة بسيطة ====== */
-    const $ = (id)=> document.getElementById(id);
-    const fmt = (n)=> (isNaN(n)?0:n).toFixed(2);
-
-    /* ====== Firebase ====== */
+    // إعداد Firebase
     const firebaseConfig = {
-      apiKey: "AIzaSyDLgv4ruPM7rmodEa_q4QoI7Cn_p84Sqww",
-      authDomain: "galmok-9d8e7.firebaseapp.com",
-      projectId: "galmok-9d8e7",
-      storageBucket: "galmok-9d8e7.appspot.com",
-      messagingSenderId: "193906028682",
-      appId: "1:193906028682:web:00dd06fd80d556294b7d73",
-      measurementId: "G-2XFFDDFEDD"
-    };
+  apiKey: "AIzaSyD7eKVMk4-lZ48_3n88fsextFrziqiK-Mw",
+  authDomain: "gilani-financial.firebaseapp.com",
+  projectId: "gilani-financial",
+  storageBucket: "gilani-financial.firebasestorage.app",
+  messagingSenderId: "685744108797",
+  appId: "1:685744108797:web:2feddfaf3f04d6028b7a94",
+  measurementId: "G-1XDCKR6E5F"
+};
+
+    // تهيئة Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    let currentUser=null, userDocRef=null;
-
-    /* ====== الحالة العامة ====== */
+    // متغيرات عامة
+    let currentUser = null;
+    let currencies = ['USD', 'EUR', 'SAR'];
     let balances = {};
-    let currencies = {};
     let transactions = [];
-    let clients = {};
-    let transactionIdCounter = 1101;
-    let currentDebtClient = null;
-    let isMultiplyMode = true; // × أو ÷ في التحويل
+    let clientDebts = {};
 
-    /* ====== إشعار (توست) ====== */
-    function notify(msg, err=false){
-      const n = document.createElement('div');
-      n.className = 'notification' + (err?' error':'');
-      n.textContent = msg;
-      document.body.appendChild(n);
-      setTimeout(()=> n.remove(), 3000);
-    }
-
-    /* ====== تنقّل الصفحات ====== */
-    function showPage(pageId){
-      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active-page'));
-      const page = $(pageId);
-      if(page) page.classList.add('active-page');
-
-      $('#main-content').style.display = 'none';
-      $('#main-header').style.display = 'none';
-      $('#page-header').style.display = 'block';
-
-      const titleEl = page ? page.querySelector('h2') : null;
-      $('#page-title').textContent = titleEl ? titleEl.textContent : '';
-      updateAllUI();
-    }
-    function goBack(){
-      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active-page'));
-      $('#main-content').style.display = '';
-      $('#main-header').style.display = 'block';
-      $('#page-header').style.display = 'none';
-      updateAllUI();
-    }
-    function showSettingsPage(kind){
-      showPage(`${kind}-page`);
-    }
-
-    /* ====== مصادقة ====== */
-    function toggleAuthForms(){
-      const login = $('#login-form'), signup = $('#signup-form');
-      if(!login || !signup) return;
-      const showLogin = (login.style.display==='none');
-      login.style.display = showLogin ? 'block':'none';
-      signup.style.display = showLogin ? 'none':'block';
-    }
-
-    auth.onAuthStateChanged(async (user)=>{
-      const authC = $('#auth-container'), appC = $('#app-container');
-      if(user){
-        currentUser=user;
-        userDocRef=db.collection('users').doc(user.uid);
-        if(authC) authC.style.display='none';
-        if(appC) appC.style.display='block';
-        await loadData();
-      }else{
-        currentUser=null; userDocRef=null;
-        if(authC) authC.style.display='flex';
-        if(appC) appC.style.display='none';
-      }
-    });
-
-    function getArabicAuthError(code){
-      switch(code){
-        case 'auth/invalid-email': return 'البريد الإلكتروني غير صالح.';
-        case 'auth/user-disabled': return 'تم تعطيل هذا الحساب.';
-        case 'auth/user-not-found': return 'البريد غير مسجل.';
-        case 'auth/wrong-password': return 'كلمة المرور غير صحيحة.';
-        case 'auth/email-already-in-use': return 'البريد مستخدم بحساب آخر.';
-        case 'auth/weak-password': return 'كلمة المرور ضعيفة (6 أحرف على الأقل).';
-        case 'auth/popup-blocked': return 'تم حظر النافذة المنبثقة.';
-        case 'auth/network-request-failed': return 'فشل في الشبكة.';
-        default: return 'حدث خطأ غير متوقع.';
-      }
-    }
-
-    async function handleSignup(){
-      const email = $('#signup-email')?.value || '';
-      const pass  = $('#signup-password')?.value || '';
-      const fn    = $('#signup-firstname')?.value.trim() || '';
-      const ln    = $('#signup-lastname')?.value.trim() || '';
-
-      if(!fn || !ln){ notify('الرجاء إدخال الاسم الأول والأخير.',true); return; }
-      if(pass.length<6){ notify('كلمة المرور 6 أحرف على الأقل.',true); return; }
-
-      const loader = $('#signup-loader'); if(loader) loader.style.display='block';
-
-      try{
-        const cred = await auth.createUserWithEmailAndPassword(email, pass);
-        await cred.user.updateProfile({displayName:`${fn} ${ln}`});
-        await db.collection('users').doc(cred.user.uid).set({
-          balances:{SDG:0,QAR:0},
-          currencies:{SDG:'جنيه سوداني',QAR:'ريال قطري'},
-          transactions:[],
-          clients:{},
-          transactionIdCounter:1101
-        });
-        notify('تم إنشاء الحساب بنجاح!');
-        if($('#signup-email')) $('#signup-email').value='';
-        if($('#signup-password')) $('#signup-password').value='';
-        if($('#signup-firstname')) $('#signup-firstname').value='';
-        if($('#signup-lastname')) $('#signup-lastname').value='';
-      }catch(e){
-        notify(`خطأ: ${getArabicAuthError(e.code)}`,true);
-      }finally{
-        if(loader) loader.style.display='none';
-      }
-    }
-
-    async function handleLogin(){
-      const email = $('#login-email')?.value || '';
-      const pass  = $('#login-password')?.value || '';
-      const loader = $('#login-loader'); if(loader) loader.style.display='block';
-      try{
-        const cred = await auth.signInWithEmailAndPassword(email, pass);
-        notify(`مرحباً ${cred.user.displayName || 'بك'} !`);
-      }catch(e){
-        notify(`خطأ: ${getArabicAuthError(e.code)}`,true);
-      }finally{
-        if(loader) loader.style.display='none';
-      }
-    }
-
-    async function signInWithGoogle(){
-      const provider = new firebase.auth.GoogleAuthProvider();
-      provider.setCustomParameters({prompt:'select_account'});
-      const l1=$('#google-loader'), l2=$('#google-loader-signup');
-      if(l1) l1.style.display='block'; if(l2) l2.style.display='block';
-      try{
-        const res = await auth.signInWithPopup(provider);
-        if(res?.additionalUserInfo?.isNewUser){
-          await db.collection('users').doc(res.user.uid).set({
-            balances:{SDG:0,QAR:0},
-            currencies:{SDG:'جنيه سوداني',QAR:'ريال قطري'},
-            transactions:[],
-            clients:{},
-            transactionIdCounter:1101
-          });
-          notify(`أهلاً بك ${res.user.displayName}!`);
-        }else{
-          notify(`أهلاً بك مجدداً ${res.user.displayName}!`);
-        }
-      }catch(e){
-        notify(getArabicAuthError(e.code),true);
-      }finally{
-        if(l1) l1.style.display='none'; if(l2) l2.style.display='none';
-      }
-    }
-
-    function handlePasswordReset(ev){
-      ev?.preventDefault?.();
-      const email = $('#login-email')?.value || '';
-      if(!email){ notify('أدخل بريدك أولاً.',true); return; }
-      auth.sendPasswordResetEmail(email)
-        .then(()=> notify('تم إرسال رابط إعادة التعيين لبريدك.'))
-        .catch(e=> notify(`خطأ: ${getArabicAuthError(e.code)}`,true));
-    }
-
-    function handleLogout(){
-      auth.signOut().then(()=>{
-        notify('تم تسجيل الخروج.');
-        balances={}; currencies={}; transactions=[]; clients={}; transactionIdCounter=1101;
-        goBack();
-      }).catch(e=> notify(`خطأ: ${e.message}`,true));
-    }
-
-    /* ====== تحميل/حفظ البيانات من Firestore ====== */
-    async function loadData(){
-      if(!userDocRef) return;
-      try{
-        const snap = await userDocRef.get();
-        if(snap.exists){
-          const d=snap.data();
-          balances = d.balances || {SDG:0,QAR:0};
-          currencies = d.currencies || {SDG:'جنيه سوداني',QAR:'ريال قطري'};
-          transactions = d.transactions || [];
-          clients = d.clients || {};
-          transactionIdCounter = d.transactionIdCounter || 1101;
-        }else{
-          await userDocRef.set({
-            balances:{SDG:0,QAR:0},
-            currencies:{SDG:'جنيه سوداني',QAR:'ريال قطري'},
-            transactions:[],
-            clients:{},
-            transactionIdCounter:1101
-          });
-          balances={SDG:0,QAR:0};
-          currencies={SDG:'جنيه سوداني',QAR:'ريال قطري'};
-          transactions=[]; clients={}; transactionIdCounter=1101;
-        }
-      }catch(e){
-        notify('تعذر تحميل البيانات.',true);
-      }
-      updateAllUI();
-    }
-
-    async function saveData(){
-      if(!userDocRef) return;
-      try{
-        await userDocRef.set({
-          balances, currencies, transactions, clients, transactionIdCounter
-        });
-      }catch(e){
-        notify('تعذر حفظ البيانات.',true);
-      }
-    }
-
-    /* ====== تحديث الواجهات ====== */
-    function updateAllUI(){
-      updateBalancesList();
-      updateCurrencyDropdowns();
-      updateActiveCurrenciesList();
-      updateTransactionsList();
-      updateClientsListDisplay();
-      updateRemoveClientDropdown();
-      if(currentDebtClient) updateClientDebtDetails();
-    }
-
-    /* كشف الحساب */
-    function updateBalancesList(){
-      const box = $('#balancesList'); if(!box) return;
-      box.innerHTML='';
-      Object.keys(balances).forEach(code=>{
-        const val = Number(balances[code])||0;
-        const div = document.createElement('div');
-        div.className='balance-item';
-        div.innerHTML = `<span>${currencies[code]||code}</span><strong>${fmt(val)} ${code}</strong>`;
-        box.appendChild(div);
-      });
-    }
-
-    function updateBalance(){
-      const code = $('#balance-currency-select')?.value;
-      const nb = parseFloat($('#new-balance')?.value||'');
-      if(!code || isNaN(nb)){ notify('يرجى إدخال مبلغ صحيح.',true); return; }
-      balances[code]=nb;
-      saveData();
-      notify('تم تحديث الرصيد.');
-      updateBalancesList();
-    }
-
-    /* العملات */
-    function updateCurrencyDropdowns(){
-      const ids=['fromCurrency','toCurrency','expenseCurrency','balance-currency-select','clientDebtCurrency'];
-      ids.forEach(id=>{
-        const sel = $(id); if(!sel) return;
-        sel.innerHTML='';
-        Object.keys(currencies).forEach(code=>{
-          const opt=document.createElement('option');
-          opt.value=code; opt.textContent=currencies[code]||code;
-          sel.appendChild(opt);
-        });
-      });
-    }
-
-    function addCurrency(){
-      const sel = $('#currency-select'); if(!sel) return;
-      const code = sel.value;
-      const name = sel.options[sel.selectedIndex]?.text || code;
-      if(currencies[code]){
-        notify('العملة موجودة مسبقاً.',true); return;
-      }
-      currencies[code]=name;
-      balances[code]=0;
-      saveData();
-      notify('تمت إضافة العملة.');
-      updateAllUI();
-    }
-
-    function updateActiveCurrenciesList(){
-      const box = $('#active-currencies-list'); if(!box) return;
-      box.innerHTML='';
-      Object.keys(currencies).forEach(code=>{
-        const row=document.createElement('div');
-        row.className='balance-item';
-        row.innerHTML=`<span>${currencies[code]} (${code})</span>
-          <button class="btn-danger" type="button" onclick="removeCurrency('${code}')">حذف</button>`;
-        box.appendChild(row);
-      });
-    }
-
-    function removeCurrency(code){
-      if(!currencies[code]) return;
-      if(!confirm(`هل تريد حذف ${currencies[code]}؟ سيتم حذف أرصدتها وسجلاتها.`)) return;
-      delete currencies[code];
-      delete balances[code];
-      transactions = transactions.filter(t=> t.currency!==code && !(t.fromCurrency===code || t.toCurrency===code));
-      Object.keys(clients).forEach(cid=>{
-        clients[cid].debts = (clients[cid].debts||[]).filter(d=> d.currency!==code);
-      });
-      saveData();
-      notify('تم الحذف.');
-      updateAllUI();
-    }
-
-    /* التحويلات */
-    function toggleRateMode(){
-      isMultiplyMode = !isMultiplyMode;
-      const btn = $('#rateModeBtn'); if(btn) btn.textContent = isMultiplyMode ? '×' : '÷';
-      notify(isMultiplyMode ? 'وضع السعر: ضرب' : 'وضع السعر: قسمة');
-    }
-
-    function performTransfer(){
-      const from = $('#fromCurrency')?.value, to = $('#toCurrency')?.value;
-      const amount = parseFloat($('#transferAmount')?.value||'');
-      const rate = parseFloat($('#exchangeRate')?.value||'');
-      const comment = $('#transferComment')?.value || '';
-
-      if(!from || !to || from===to){ notify('اختر عملتين مختلفتين.',true); return; }
-      if(isNaN(amount)||amount<=0){ notify('مبلغ غير صالح.',true); return; }
-      if(isNaN(rate)||rate<=0){ notify('سعر صرف غير صالح.',true); return; }
-      if((balances[from]||0) < amount){ notify(`رصيد ${from} غير كافٍ.`,true); return; }
-
-      const converted = isMultiplyMode ? amount*rate : amount/rate;
-
-      balances[from] = (balances[from]||0) - amount;
-      balances[to]   = (balances[to]||0) + converted;
-
-      transactions.unshift({
-        id: transactionIdCounter++,
-        type:'تحويل',
-        fromCurrency:from,
-        toCurrency:to,
-        amount, convertedAmount:converted, exchangeRate:rate,
-        comment, date:new Date().toISOString()
-      });
-
-      saveData();
-      notify('تم التحويل.');
-      if($('#transferAmount')) $('#transferAmount').value='';
-      if($('#transferComment')) $('#transferComment').value='';
-      updateAllUI();
-    }
-
-    /* الصادر والوارد */
-    function performExpense(){
-      const person = $('#expensePerson')?.value || '';
-      const type = $('#expenseType')?.value || 'صادر';
-      const amount = parseFloat($('#expenseAmount')?.value || '');
-      const currency = $('#expenseCurrency')?.value;
-      const details = $('#expenseDetails')?.value || '';
-
-      if(!person || !currency || isNaN(amount) || amount<=0){
-        notify('أدخل الحقول المطلوبة بشكل صحيح.',true); return;
-      }
-      if(type==='صادر' && ((balances[currency]||0) < amount)){
-        notify('الرصيد غير كافٍ.',true); return;
-      }
-
-      if(type==='صادر'){ balances[currency]=(balances[currency]||0)-amount; }
-      else{ balances[currency]=(balances[currency]||0)+amount; }
-
-      transactions.unshift({
-        id: transactionIdCounter++,
-        type, person, amount, currency, details,
-        date:new Date().toISOString()
-      });
-
-      saveData();
-      notify(`تم تسجيل ${type}.`);
-      if($('#expensePerson')) $('#expensePerson').value='';
-      if($('#expenseAmount')) $('#expenseAmount').value='';
-      if($('#expenseDetails')) $('#expenseDetails').value='';
-      updateAllUI();
-    }
-
-    /* المعاملات */
-    function updateTransactionsList(){
-      const list = $('#transactionsList');
-      const recent = $('#recentTransactions');
-      if(list) list.innerHTML='';
-      if(recent) recent.innerHTML='';
-
-      const sorted = [...transactions].sort((a,b)=> new Date(b.date)-new Date(a.date));
-      sorted.forEach((t,i)=>{
-        const div=document.createElement('div');
-        div.className='balance-item';
-        let text='';
-        if(t.type==='تحويل'){
-          text = `تحويل: ${fmt(t.amount)} ${t.fromCurrency} → ${fmt(t.convertedAmount)} ${t.toCurrency} بسعر ${t.exchangeRate}${t.comment?` (${t.comment})`:''}`;
-        }else{
-          text = `${t.type}: ${fmt(t.amount)} ${t.currency} ${t.person?(' - '+t.person):''}${t.details?` (${t.details})`:''}`;
-        }
-        div.textContent = `${new Date(t.date).toLocaleString()} — ${text}`;
-        if(list) list.appendChild(div);
-        if(recent && i<5) recent.appendChild(div.cloneNode(true));
-      });
-    }
-
-    function searchTransactions(){
-      const term = ($('#transactionSearch')?.value || '').toLowerCase();
-      const list = $('#transactionsList'); if(!list) return;
-      list.innerHTML='';
-
-      const filtered = transactions.filter(t=>{
-        const s = JSON.stringify(t).toLowerCase() + ' ' + new Date(t.date).toLocaleString().toLowerCase();
-        return s.includes(term);
-      }).sort((a,b)=> new Date(b.date)-new Date(a.date));
-
-      if(!filtered.length){
-        list.innerHTML='<p style="text-align:center;margin:16px 0">لا توجد معاملات مطابقة.</p>';
+    // دوال المصادقة
+    function handleLogin() {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      
+      if (!email || !password) {
+        showNotification('يرجى إدخال البريد الإلكتروني وكلمة المرور', 'error');
         return;
       }
 
-      filtered.forEach(t=>{
-        const div=document.createElement('div');
-        div.className='balance-item';
-        let text='';
-        if(t.type==='تحويل'){
-          text = `تحويل: ${fmt(t.amount)} ${t.fromCurrency} → ${fmt(t.convertedAmount)} ${t.toCurrency} بسعر ${t.exchangeRate}${t.comment?` (${t.comment})`:''}`;
-        }else{
-          text = `${t.type}: ${fmt(t.amount)} ${t.currency} ${t.person?(' - '+t.person):''}${t.details?` (${t.details})`:''}`;
-        }
-        div.textContent = `${new Date(t.date).toLocaleString()} — ${text}`;
-        list.appendChild(div);
+      showLoader('login-loader');
+      
+      auth.signInWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+          currentUser = userCredential.user;
+          showNotification('مرحباً بك! تم تسجيل الدخول بنجاح');
+          loadUserData();
+          showApp();
+        })
+        .catch((error) => {
+          console.error('خطأ في تسجيل الدخول:', error);
+          let errorMessage = 'حدث خطأ غير متوقع';
+          
+          if (error.code === 'auth/user-not-found') {
+            errorMessage = 'لا يوجد حساب مسجل بهذا البريد الإلكتروني. يرجى إنشاء حساب جديد أولاً';
+          } else if (error.code === 'auth/wrong-password') {
+            errorMessage = 'كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى';
+          } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'البريد الإلكتروني غير صحيح';
+          } else if (error.code === 'auth/user-disabled') {
+            errorMessage = 'تم تعطيل هذا الحساب. يرجى التواصل مع الدعم الفني';
+          } else if (error.code === 'auth/too-many-requests') {
+            errorMessage = 'تم تجاوز عدد المحاولات المسموح. يرجى المحاولة لاحقاً';
+          }
+          
+          showNotification(errorMessage, 'error');
+        })
+        .finally(() => {
+          hideLoader('login-loader');
+        });
+    }
+
+    function handleSignup() {
+      const firstName = document.getElementById('signup-firstname').value;
+      const lastName = document.getElementById('signup-lastname').value;
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+      
+      if (!firstName || !lastName || !email || !password) {
+        showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+        return;
+      }
+
+      // التحقق من شروط كلمة المرور
+      if (!validatePassword(password)) {
+        showNotification('كلمة المرور لا تلبي الشروط المطلوبة', 'error');
+        return;
+      }
+
+      showLoader('signup-loader');
+      
+      auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+          currentUser = userCredential.user;
+          
+          // تحديث ملف المستخدم
+          return currentUser.updateProfile({
+            displayName: `${firstName} ${lastName}`
+          });
+        })
+        .then(() => {
+          showNotification('أهلاً وسهلاً! تم إنشاء حسابك بنجاح');
+          initializeUserData();
+          showApp();
+        })
+        .catch((error) => {
+          console.error('خطأ في إنشاء الحساب:', error);
+          let errorMessage = 'حدث خطأ في إنشاء الحساب';
+          
+          if (error.code === 'auth/email-already-in-use') {
+            errorMessage = 'هذا البريد الإلكتروني مستخدم بالفعل. يرجى تسجيل الدخول أو استخدام بريد آخر';
+          } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'البريد الإلكتروني غير صحيح';
+          } else if (error.code === 'auth/weak-password') {
+            errorMessage = 'كلمة المرور ضعيفة جداً';
+          }
+          
+          showNotification(errorMessage, 'error');
+        })
+        .finally(() => {
+          hideLoader('signup-loader');
+        });
+    }
+
+    // دالة التحقق من شروط كلمة المرور
+    function validatePassword(password) {
+      const hasUpperCase = /[A-Z]/.test(password);
+      const hasLowerCase = /[a-z]/.test(password);
+      const hasNumbers = /\d/.test(password);
+      const hasSpecialChar = /[$&#@!%*?&]/.test(password);
+      const hasMinLength = password.length >= 8;
+      
+      return hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar && hasMinLength;
+    }
+
+    // إظهار/إخفاء شروط كلمة المرور
+    document.addEventListener('DOMContentLoaded', function() {
+      const passwordInput = document.getElementById('signup-password');
+      const requirementsDiv = document.getElementById('password-requirements');
+      
+      if (passwordInput && requirementsDiv) {
+        passwordInput.addEventListener('focus', function() {
+          requirementsDiv.style.display = 'block';
+        });
+        
+        passwordInput.addEventListener('blur', function() {
+          setTimeout(() => {
+            requirementsDiv.style.display = 'none';
+          }, 200);
+        });
+      }
+    });
+
+    function signInWithGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      showLoader('google-loader');
+      showLoader('google-loader-signup');
+      
+      auth.signInWithPopup(provider)
+        .then((result) => {
+          currentUser = result.user;
+          showNotification('مرحباً بك! تم تسجيل الدخول بنجاح عبر Google');
+          loadUserData();
+          showApp();
+        })
+        .catch((error) => {
+          console.error('خطأ في تسجيل الدخول بـ Google:', error);
+          let errorMessage = 'حدث خطأ في تسجيل الدخول عبر Google';
+          
+          if (error.code === 'auth/popup-closed-by-user') {
+            errorMessage = 'تم إلغاء عملية تسجيل الدخول';
+          } else if (error.code === 'auth/popup-blocked') {
+            errorMessage = 'تم حظر النافذة المنبثقة. يرجى السماح بالنوافذ المنبثقة والمحاولة مرة أخرى';
+          } else if (error.code === 'auth/account-exists-with-different-credential') {
+            errorMessage = 'يوجد حساب بهذا البريد الإلكتروني بطريقة تسجيل دخول مختلفة';
+          }
+          
+          showNotification(errorMessage, 'error');
+        })
+        .finally(() => {
+          hideLoader('google-loader');
+          hideLoader('google-loader-signup');
+        });
+    }
+
+    function handlePasswordReset(event) {
+      event.preventDefault();
+      const email = document.getElementById('login-email').value;
+      
+      if (!email) {
+        showNotification('يرجى إدخال البريد الإلكتروني أولاً', 'error');
+        return;
+      }
+
+      auth.sendPasswordResetEmail(email)
+        .then(() => {
+          showNotification('تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني. يرجى التحقق من صندوق الوارد');
+        })
+        .catch((error) => {
+          console.error('خطأ في إرسال رابط إعادة التعيين:', error);
+          let errorMessage = 'حدث خطأ في إرسال رابط إعادة التعيين';
+          
+          if (error.code === 'auth/user-not-found') {
+            errorMessage = 'لا يوجد حساب مسجل بهذا البريد الإلكتروني';
+          } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'البريد الإلكتروني غير صحيح';
+          }
+          
+          showNotification(errorMessage, 'error');
+        });
+    }
+
+    function handleLogout() {
+      auth.signOut().then(() => {
+        currentUser = null;
+        showAuth();
+        showNotification('تم تسجيل الخروج بنجاح');
       });
     }
 
-    /* ديون العملاء (أساسيات) */
-    function toggleAddClient(){
-      const s=$('#addClientSection'); if(!s) return;
-      s.style.display = (s.style.display==='none' || !s.style.display)?'block':'none';
-    }
-    function toggleRemoveClient(){
-      const s=$('#removeClientSection'); if(!s) return;
-      s.style.display = (s.style.display==='none' || !s.style.display)?'block':'none';
-    }
-    function addClientDebt(){
-      const name = $('#newClientName')?.value.trim(); if(!name){ notify('أدخل اسم العميل.',true); return; }
-      const phone = $('#newClientPhone')?.value.trim() || '';
-      const note  = $('#newClientNote')?.value.trim() || '';
-      const id = 'C' + Date.now();
-      clients[id]={ id, name, phone, note, debts:[] };
-      saveData(); notify('تم إضافة العميل.');
-      if($('#newClientName')) $('#newClientName').value='';
-      if($('#newClientPhone')) $('#newClientPhone').value='';
-      if($('#newClientNote')) $('#newClientNote').value='';
-      updateClientsListDisplay();
-      updateRemoveClientDropdown();
-    }
-    function updateClientsListDisplay(){
-      const box = $('#clientsListDisplay'); if(!box) return;
-      box.innerHTML='';
-      Object.values(clients).forEach(c=>{
-        const row=document.createElement('div');
-        row.className='balance-item';
-        row.innerHTML=`<div><strong>${c.name}</strong>${c.phone?` — ${c.phone}`:''}${c.note?` — ${c.note}`:''}</div>
-        <div style="display:flex;gap:8px">
-          <button type="button" onclick="openClientDetails('${c.id}')">تفاصيل</button>
-        </div>`;
-        box.appendChild(row);
-      });
-      // مخلص إجمالي (بسيط)
-      const overall = $('#overallDebtSummary');
-      if(overall){
-        overall.innerHTML = `<span>عدد العملاء</span><strong>${Object.keys(clients).length}</strong>`;
+    function toggleAuthForms() {
+      const loginForm = document.getElementById('login-form');
+      const signupForm = document.getElementById('signup-form');
+      
+      if (loginForm.style.display === 'none') {
+        loginForm.style.display = 'block';
+        signupForm.style.display = 'none';
+      } else {
+        loginForm.style.display = 'none';
+        signupForm.style.display = 'block';
       }
     }
-    function openClientDetails(id){
-      currentDebtClient = clients[id] || null;
-      if(!currentDebtClient){ notify('العميل غير موجود.',true); return; }
-      $('#clientDetailsName').textContent = currentDebtClient.name;
-      showPage('debtDetailsPage');
-      updateClientDebtDetails();
-    }
-    function updateClientDebtDetails(){
-      if(!currentDebtClient) return;
-      const sumBox = $('#clientDebtSummary'); const list = $('#clientDebtDetails');
-      if(sumBox) sumBox.innerHTML='';
-      if(list) list.innerHTML='';
-      const totals = {}; // حسب العملة
-      (currentDebtClient.debts||[]).forEach(d=>{
-        const key = d.currency || 'UNK';
-        totals[key] = totals[key] || { لك:0, له:0 };
-        if(d.type==='لك') totals[key].لك += Number(d.amount)||0;
-        else totals[key].له += Number(d.amount)||0;
-        const r=document.createElement('div');
-        r.className='debt-record';
-        r.textContent = `${new Date(d.date).toLocaleString()} — ${d.type}: ${fmt(d.amount)} ${d.currency} ${d.comment?`(${d.comment})`:''}`;
-        if(list) list.appendChild(r);
-      });
-      const sum = Object.entries(totals).map(([cur,v])=>{
-        const net = v.له - v.لك; // موجب: عليه لك / سالب: لك عليه
-        return `<div class="balance-item"><span>${cur}</span><strong>${fmt(net)}</strong></div>`;
-      }).join('') || '<div class="balance-item"><span>لا توجد سجلات</span><strong>0</strong></div>';
-      if(sumBox) sumBox.innerHTML = sum;
 
-      // تحديث قائمة العملات في صفحة العميل
-      const sel = $('#clientDebtCurrency');
-      if(sel){
-        sel.innerHTML='';
-        Object.keys(currencies).forEach(code=>{
-          const opt=document.createElement('option');
-          opt.value=code; opt.textContent=currencies[code]||code;
-          sel.appendChild(opt);
+    // دوال التطبيق
+    function showApp() {
+      document.getElementById('auth-container').style.display = 'none';
+      document.getElementById('app-container').style.display = 'block';
+      updateCurrencySelects();
+      loadBalances();
+      loadTransactions();
+    }
+
+    function showAuth() {
+      document.getElementById('auth-container').style.display = 'flex';
+      document.getElementById('app-container').style.display = 'none';
+    }
+
+    function showPage(pageId) {
+      // إخفاء جميع الصفحات
+      const pages = document.querySelectorAll('.page');
+      pages.forEach(page => page.style.display = 'none');
+      
+      // إخفاء المحتوى الرئيسي
+      document.getElementById('main-content').style.display = 'none';
+      
+      // إظهار رأس الصفحات
+      document.getElementById('page-header').style.display = 'flex';
+      
+      // إظهار الصفحة المطلوبة
+      const targetPage = document.getElementById(pageId);
+      if (targetPage) {
+        targetPage.style.display = 'block';
+        
+        // تحديث عنوان الصفحة
+        const pageTitle = targetPage.querySelector('h2').textContent;
+        document.getElementById('page-title').textContent = pageTitle;
+      }
+    }
+
+    function goBack() {
+      // إخفاء جميع الصفحات
+      const pages = document.querySelectorAll('.page');
+      pages.forEach(page => page.style.display = 'none');
+      
+      // إخفاء رأس الصفحات
+      document.getElementById('page-header').style.display = 'none';
+      
+      // إظهار المحتوى الرئيسي
+      document.getElementById('main-content').style.display = 'block';
+    }
+
+    function showSettingsPage(pageId) {
+      showPage(pageId + '-page');
+    }
+
+    // دوال المساعدة
+    function showNotification(message, type = 'success') {
+      const notification = document.createElement('div');
+      notification.className = `notification ${type === 'error' ? 'error' : ''}`;
+      notification.textContent = message;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 3000);
+    }
+
+    function showLoader(loaderId) {
+      const loader = document.getElementById(loaderId);
+      if (loader) loader.style.display = 'block';
+    }
+
+    function hideLoader(loaderId) {
+      const loader = document.getElementById(loaderId);
+      if (loader) loader.style.display = 'none';
+    }
+
+    // دوال البيانات
+    function loadUserData() {
+      if (!currentUser) return;
+      
+      // تحميل العملات
+      db.collection('users').doc(currentUser.uid).collection('currencies').get()
+        .then((querySnapshot) => {
+          currencies = [];
+          querySnapshot.forEach((doc) => {
+            currencies.push(doc.id);
+          });
+          if (currencies.length === 0) {
+            currencies = ['USD', 'EUR', 'SAR'];
+          }
+          updateCurrencySelects();
+        });
+      
+      // تحميل الأرصدة
+      db.collection('users').doc(currentUser.uid).collection('balances').get()
+        .then((querySnapshot) => {
+          balances = {};
+          querySnapshot.forEach((doc) => {
+            balances[doc.id] = doc.data().amount;
+          });
+          loadBalances();
+        });
+      
+      // تحميل المعاملات
+      db.collection('users').doc(currentUser.uid).collection('transactions')
+        .orderBy('timestamp', 'desc')
+        .get()
+        .then((querySnapshot) => {
+          transactions = [];
+          querySnapshot.forEach((doc) => {
+            transactions.push({id: doc.id, ...doc.data()});
+          });
+          loadTransactions();
+        });
+    }
+
+    function initializeUserData() {
+      if (!currentUser) return;
+      
+      // إضافة العملات الافتراضية
+      currencies.forEach(currency => {
+        db.collection('users').doc(currentUser.uid).collection('currencies').doc(currency).set({
+          name: currency,
+          added: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      });
+      
+      // إضافة أرصدة افتراضية
+      currencies.forEach(currency => {
+        balances[currency] = 0;
+        db.collection('users').doc(currentUser.uid).collection('balances').doc(currency).set({
+          amount: 0
+        });
+      });
+      
+      updateCurrencySelects();
+      loadBalances();
+    }
+
+    function updateCurrencySelects() {
+      const selects = [
+        'fromCurrency', 'toCurrency', 'expenseCurrency', 
+        'clientDebtCurrency', 'balance-currency'
+      ];
+      
+      selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (select) {
+          select.innerHTML = '';
+          currencies.forEach(currency => {
+            const option = document.createElement('option');
+            option.value = currency;
+            option.textContent = currency;
+            select.appendChild(option);
+          });
+        }
+      });
+    }
+
+    function loadBalances() {
+      const balancesList = document.getElementById('balancesList');
+      if (!balancesList) return;
+      
+      balancesList.innerHTML = '';
+      
+      currencies.forEach(currency => {
+        const balance = balances[currency] || 0;
+        const balanceItem = document.createElement('div');
+        balanceItem.className = 'balance-item';
+        balanceItem.innerHTML = `
+          <span>${currency}</span>
+          <span>${balance.toFixed(2)}</span>
+        `;
+        balancesList.appendChild(balanceItem);
+      });
+    }
+
+    function loadTransactions() {
+      const transactionsList = document.getElementById('transactionsList');
+      const recentTransactions = document.getElementById('recentTransactions');
+      
+      if (transactionsList) {
+        transactionsList.innerHTML = '';
+        transactions.forEach(transaction => {
+          const transactionItem = document.createElement('div');
+          transactionItem.className = 'balance-item';
+          transactionItem.innerHTML = `
+            <div>
+              <strong>${transaction.type}</strong><br>
+              <small>${new Date(transaction.timestamp?.toDate()).toLocaleString('ar')}</small>
+            </div>
+            <span>${transaction.amount} ${transaction.currency}</span>
+          `;
+          transactionsList.appendChild(transactionItem);
+        });
+      }
+      
+      if (recentTransactions) {
+        recentTransactions.innerHTML = '';
+        transactions.slice(0, 5).forEach(transaction => {
+          const transactionItem = document.createElement('div');
+          transactionItem.className = 'balance-item';
+          transactionItem.innerHTML = `
+            <div>
+              <strong>${transaction.type}</strong><br>
+              <small>${new Date(transaction.timestamp?.toDate()).toLocaleString('ar')}</small>
+            </div>
+            <span>${transaction.amount} ${transaction.currency}</span>
+          `;
+          recentTransactions.appendChild(transactionItem);
         });
       }
     }
-    function addOrUpdateClientDebt(){
-      if(!currentDebtClient){ notify('اختر عميلاً أولاً.',true); return; }
-      const type = $('#clientDebtType')?.value || 'له';
-      const amount = parseFloat($('#clientDebtAmount')?.value||'');
-      const currency = $('#clientDebtCurrency')?.value;
-      const comment = $('#clientDebtComment')?.value||'';
-      if(!currency || isNaN(amount)||amount<=0){ notify('بيانات غير صالحة.',true); return; }
-      currentDebtClient.debts = currentDebtClient.debts || [];
-      currentDebtClient.debts.unshift({
-        type, amount, currency, comment, date:new Date().toISOString()
-      });
-      clients[currentDebtClient.id]=currentDebtClient;
-      saveData(); notify('تم الحفظ.');
-      if($('#clientDebtAmount')) $('#clientDebtAmount').value='';
-      if($('#clientDebtComment')) $('#clientDebtComment').value='';
-      updateClientDebtDetails();
-    }
-    function updateRemoveClientDropdown(){
-      const sel=$('#removeClientDropdown'); if(!sel) return;
-      sel.innerHTML='';
-      Object.values(clients).forEach(c=>{
-        const opt=document.createElement('option'); opt.value=c.id; opt.textContent=c.name;
-        sel.appendChild(opt);
-      });
-    }
-    function removeClientFromDropdown(){
-      const sel=$('#removeClientDropdown'); if(!sel) return;
-      const id = sel.value; if(!id) return;
-      if(!confirm('هل تريد حذف هذا العميل؟')) return;
-      delete clients[id];
-      if(currentDebtClient && currentDebtClient.id===id){ currentDebtClient=null; }
-      saveData(); notify('تم حذف العميل.');
-      updateClientsListDisplay(); updateRemoveClientDropdown();
-      if($('#debtDetailsPage').classList.contains('active-page')) goBack();
+
+    // دوال العمليات المالية
+    function performTransfer() {
+      const fromCurrency = document.getElementById('fromCurrency').value;
+      const toCurrency = document.getElementById('toCurrency').value;
+      const amount = parseFloat(document.getElementById('transferAmount').value);
+      const rate = parseFloat(document.getElementById('exchangeRate').value);
+      const comment = document.getElementById('transferComment').value;
+      
+      if (!amount || amount <= 0) {
+        showNotification('يرجى إدخال مبلغ صحيح', 'error');
+        return;
+      }
+      
+      if (!rate || rate <= 0) {
+        showNotification('يرجى إدخال سعر صرف صحيح', 'error');
+        return;
+      }
+      
+      if (fromCurrency === toCurrency) {
+        showNotification('لا يمكن التحويل إلى نفس العملة', 'error');
+        return;
+      }
+      
+      if ((balances[fromCurrency] || 0) < amount) {
+        showNotification('الرصيد غير كافي', 'error');
+        return;
+      }
+      
+      // تنفيذ التحويل
+      const convertedAmount = amount * rate;
+      
+      balances[fromCurrency] = (balances[fromCurrency] || 0) - amount;
+      balances[toCurrency] = (balances[toCurrency] || 0) + convertedAmount;
+      
+      // حفظ في قاعدة البيانات
+      if (currentUser) {
+        db.collection('users').doc(currentUser.uid).collection('balances').doc(fromCurrency).set({
+          amount: balances[fromCurrency]
+        });
+        
+        db.collection('users').doc(currentUser.uid).collection('balances').doc(toCurrency).set({
+          amount: balances[toCurrency]
+        });
+        
+        // إضافة المعاملة
+        const transaction = {
+          type: 'تحويل',
+          fromCurrency,
+          toCurrency,
+          amount,
+          convertedAmount,
+          rate,
+          comment,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        db.collection('users').doc(currentUser.uid).collection('transactions').add(transaction);
+        transactions.unshift({...transaction, timestamp: new Date()});
+      }
+      
+      loadBalances();
+      loadTransactions();
+      showNotification('تم التحويل بنجاح');
+      
+      // مسح النموذج
+      document.getElementById('transferAmount').value = '';
+      document.getElementById('exchangeRate').value = '';
+      document.getElementById('transferComment').value = '';
     }
 
-    /* مسح البيانات */
-    function resetAllData(){
-      if(!confirm('سيتم مسح جميع البيانات. هل أنت متأكد؟')) return;
-      balances={}; currencies={}; transactions=[]; clients={}; transactionIdCounter=1101;
-      saveData(); notify('تم المسح.');
-      updateAllUI();
+    function performExpense() {
+      const person = document.getElementById('expensePerson').value;
+      const type = document.getElementById('expenseType').value;
+      const amount = parseFloat(document.getElementById('expenseAmount').value);
+      const currency = document.getElementById('expenseCurrency').value;
+      const details = document.getElementById('expenseDetails').value;
+      
+      if (!person || !amount || amount <= 0) {
+        showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+        return;
+      }
+      
+      // تحديث الرصيد
+      if (type === 'صادر') {
+        if ((balances[currency] || 0) < amount) {
+          showNotification('الرصيد غير كافي', 'error');
+          return;
+        }
+        balances[currency] = (balances[currency] || 0) - amount;
+      } else {
+        balances[currency] = (balances[currency] || 0) + amount;
+      }
+      
+      // حفظ في قاعدة البيانات
+      if (currentUser) {
+        db.collection('users').doc(currentUser.uid).collection('balances').doc(currency).set({
+          amount: balances[currency]
+        });
+        
+        // إضافة المعاملة
+        const transaction = {
+          type: `${type} - ${person}`,
+          amount: type === 'صادر' ? -amount : amount,
+          currency,
+          details,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        db.collection('users').doc(currentUser.uid).collection('transactions').add(transaction);
+        transactions.unshift({...transaction, timestamp: new Date()});
+      }
+      
+      loadBalances();
+      loadTransactions();
+      showNotification('تم تسجيل العملية بنجاح');
+      
+      // مسح النموذج
+      document.getElementById('expensePerson').value = '';
+      document.getElementById('expenseAmount').value = '';
+      document.getElementById('expenseDetails').value = '';
     }
 
-    /* عند التحميل الأولي */
-    document.addEventListener('DOMContentLoaded', ()=>{
-      // لا شيء إضافي هنا… بقية العمل يتم بعد auth
+    // دوال إدارة العملات
+    function addCurrency() {
+      const select = document.getElementById('currency-select');
+      const currency = select.value;
+      
+      if (currencies.includes(currency)) {
+        showNotification('العملة موجودة بالفعل', 'error');
+        return;
+      }
+      
+      currencies.push(currency);
+      balances[currency] = 0;
+      
+      // حفظ في قاعدة البيانات
+      if (currentUser) {
+        db.collection('users').doc(currentUser.uid).collection('currencies').doc(currency).set({
+          name: currency,
+          added: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        db.collection('users').doc(currentUser.uid).collection('balances').doc(currency).set({
+          amount: 0
+        });
+      }
+      
+      updateCurrencySelects();
+      loadBalances();
+      loadCurrenciesList();
+      showNotification('تم إضافة العملة بنجاح');
+    }
+
+    function loadCurrenciesList() {
+      const currenciesList = document.getElementById('currenciesList');
+      if (!currenciesList) return;
+      
+      currenciesList.innerHTML = '';
+      
+      currencies.forEach(currency => {
+        const currencyItem = document.createElement('div');
+        currencyItem.className = 'balance-item';
+        currencyItem.innerHTML = `
+          <span>${currency}</span>
+          <button type="button" class="btn-danger" style="width:auto;padding:5px 10px" onclick="removeCurrency('${currency}')">حذف</button>
+        `;
+        currenciesList.appendChild(currencyItem);
+      });
+    }
+
+    function removeCurrency(currency) {
+      if (currencies.length <= 1) {
+        showNotification('يجب أن تبقى عملة واحدة على الأقل', 'error');
+        return;
+      }
+      
+      currencies = currencies.filter(c => c !== currency);
+      delete balances[currency];
+      
+      // حذف من قاعدة البيانات
+      if (currentUser) {
+        db.collection('users').doc(currentUser.uid).collection('currencies').doc(currency).delete();
+        db.collection('users').doc(currentUser.uid).collection('balances').doc(currency).delete();
+      }
+      
+      updateCurrencySelects();
+      loadBalances();
+      loadCurrenciesList();
+      showNotification('تم حذف العملة بنجاح');
+    }
+
+    // دوال إدارة الرصيد
+    function updateBalance() {
+      const currency = document.getElementById('balance-currency').value;
+      const newBalance = parseFloat(document.getElementById('new-balance').value);
+      
+      if (isNaN(newBalance)) {
+        showNotification('يرجى إدخال رصيد صحيح', 'error');
+        return;
+      }
+      
+      balances[currency] = newBalance;
+      
+      // حفظ في قاعدة البيانات
+      if (currentUser) {
+        db.collection('users').doc(currentUser.uid).collection('balances').doc(currency).set({
+          amount: newBalance
+        });
+      }
+      
+      loadBalances();
+      showNotification('تم تحديث الرصيد بنجاح');
+      
+      document.getElementById('new-balance').value = '';
+      document.getElementById('current-balance').value = newBalance.toFixed(2);
+    }
+
+    // دوال أخرى
+    function searchTransactions() {
+      const searchTerm = document.getElementById('transactionSearch').value.toLowerCase();
+      const filteredTransactions = transactions.filter(transaction => 
+        transaction.type.toLowerCase().includes(searchTerm) ||
+        (transaction.details && transaction.details.toLowerCase().includes(searchTerm))
+      );
+      
+      const transactionsList = document.getElementById('transactionsList');
+      if (!transactionsList) return;
+      
+      transactionsList.innerHTML = '';
+      filteredTransactions.forEach(transaction => {
+        const transactionItem = document.createElement('div');
+        transactionItem.className = 'balance-item';
+        transactionItem.innerHTML = `
+          <div>
+            <strong>${transaction.type}</strong><br>
+            <small>${new Date(transaction.timestamp?.toDate ? transaction.timestamp.toDate() : transaction.timestamp).toLocaleString('ar')}</small>
+          </div>
+          <span>${transaction.amount} ${transaction.currency}</span>
+        `;
+        transactionsList.appendChild(transactionItem);
+      });
+    }
+
+    function toggleRateMode() {
+      // وظيفة لتبديل وضع سعر الصرف (ضرب/قسمة)
+      const btn = document.getElementById('rateModeBtn');
+      if (btn.textContent === '×') {
+        btn.textContent = '÷';
+      } else {
+        btn.textContent = '×';
+      }
+    }
+
+    function resetAllData() {
+      if (!confirm('هل أنت متأكد من حذف جميع البيانات؟ هذا الإجراء لا يمكن التراجع عنه.')) {
+        return;
+      }
+      
+      // مسح البيانات المحلية
+      currencies = ['USD'];
+      balances = {USD: 0};
+      transactions = [];
+      clientDebts = {};
+      
+      // مسح البيانات من قاعدة البيانات
+      if (currentUser) {
+        // حذف جميع المجموعات
+        const collections = ['currencies', 'balances', 'transactions', 'clientDebts'];
+        collections.forEach(collection => {
+          db.collection('users').doc(currentUser.uid).collection(collection).get()
+            .then(querySnapshot => {
+              querySnapshot.forEach(doc => {
+                doc.ref.delete();
+              });
+            });
+        });
+        
+        // إعادة تهيئة البيانات الافتراضية
+        setTimeout(() => {
+          initializeUserData();
+        }, 1000);
+      }
+      
+      updateCurrencySelects();
+      loadBalances();
+      loadTransactions();
+      showNotification('تم مسح جميع البيانات بنجاح');
+    }
+
+    // دوال ديون العملاء (مبسطة)
+    function toggleAddClient() {
+      const section = document.getElementById('addClientSection');
+      section.style.display = section.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function toggleRemoveClient() {
+      const section = document.getElementById('removeClientSection');
+      section.style.display = section.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function addClientDebt() {
+      showNotification('ميزة ديون العملاء قيد التطوير');
+    }
+
+    function removeClientFromDropdown() {
+      showNotification('ميزة ديون العملاء قيد التطوير');
+    }
+
+    function addOrUpdateClientDebt() {
+      showNotification('ميزة ديون العملاء قيد التطوير');
+    }
+
+    // مراقبة حالة المصادقة
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        currentUser = user;
+        loadUserData();
+        showApp();
+      } else {
+        currentUser = null;
+        showAuth();
+      }
+    });
+
+    // تهيئة التطبيق عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', function() {
+      // إضافة مستمعي الأحداث للنماذج
+      document.getElementById('login-email').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          handleLogin();
+        }
+      });
+      
+      document.getElementById('login-password').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          handleLogin();
+        }
+      });
+      
+      // تحديث الرصيد الحالي عند تغيير العملة
+      const balanceCurrencySelect = document.getElementById('balance-currency');
+      if (balanceCurrencySelect) {
+        balanceCurrencySelect.addEventListener('change', function() {
+          const currency = this.value;
+          const currentBalance = balances[currency] || 0;
+          document.getElementById('current-balance').value = currentBalance.toFixed(2);
+        });
+      }
+      
+      // تحميل قائمة العملات عند فتح صفحة إدارة العملات
+      const currencySettingsPage = document.getElementById('currency-settings-page');
+      if (currencySettingsPage) {
+        const observer = new MutationObserver(function(mutations) {
+          mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+              if (currencySettingsPage.style.display === 'block') {
+                loadCurrenciesList();
+              }
+            }
+          });
+        });
+        observer.observe(currencySettingsPage, { attributes: true });
+      }
     });
   </script>
 </body>
 </html>
+
