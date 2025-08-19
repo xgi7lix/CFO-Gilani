@@ -196,7 +196,132 @@
     /* زر رجوع */
     .back-button{background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 10px;border-radius:8px;cursor:pointer}
 
-    /* فلاتر البحث */
+    /* فلاتر البحث المختصرة */
+    .compact-filters {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 15px;
+      border: 1px solid #e9ecef;
+    }
+
+    .filter-toggle-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      transition: var(--t);
+    }
+
+    .filter-toggle-btn:hover {
+      background: #0056b3;
+    }
+
+    .filter-toggle-btn i:last-child {
+      transition: transform 0.3s ease;
+    }
+
+    .filter-toggle-btn.active i:last-child {
+      transform: rotate(180deg);
+    }
+
+    .quick-filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .compact-select, .compact-input, .compact-date, .compact-number {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 13px;
+      min-width: 100px;
+      height: 32px;
+    }
+
+    .compact-select {
+      min-width: 120px;
+    }
+
+    .compact-input {
+      min-width: 150px;
+      flex: 1;
+    }
+
+    .compact-date, .compact-number {
+      min-width: 110px;
+    }
+
+    .clear-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      height: 32px;
+      min-width: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .clear-btn:hover {
+      background: #c82333;
+    }
+
+    .advanced-filters {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e9ecef;
+    }
+
+    .advanced-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .advanced-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .advanced-group label {
+      font-size: 11px;
+      margin-bottom: 4px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    /* تحسينات الاستجابة للفلاتر المختصرة */
+    @media (max-width: 768px) {
+      .quick-filters {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .compact-select, .compact-input, .compact-date, .compact-number {
+        min-width: auto;
+        width: 100%;
+      }
+
+      .advanced-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* الأنماط القديمة للفلاتر */
     .search-filters {
       background:#f8f9fa;
       border-radius:8px;
@@ -437,6 +562,10 @@
           <label for="login-password">كلمة المرور</label>
           <input type="password" id="login-password" placeholder="********" required>
         </div>
+        <div class="form-row" style="display: flex; align-items: center; gap: 8px; margin: 10px 0;">
+          <input type="checkbox" id="remember-me" style="width: auto; margin: 0;">
+          <label for="remember-me" style="margin: 0; font-weight: normal; cursor: pointer;">حفظ تسجيل الدخول</label>
+        </div>
         <div class="form-row" style="text-align:left;margin:-6px 0 10px">
           <a href="#" onclick="handlePasswordReset(event)" class="auth-switch">نسيت كلمة المرور؟</a>
         </div>
@@ -530,13 +659,13 @@
             <i class="fas fa-dollar-sign"></i>
             <div>الصادر والوارد</div>
           </div>
+          <div class="main-card" onclick="showPage('debts')">
+            <i class="fas fa-handshake"></i>
+            <div>الديون</div>
+          </div>
           <div class="main-card" onclick="showPage('transactions')">
             <i class="fas fa-list"></i>
             <div>كل المعاملات</div>
-          </div>
-          <div class="main-card" onclick="showPage('statistics')">
-            <i class="fas fa-chart-bar"></i>
-            <div>الإحصائيات</div>
           </div>
           <div class="main-card" onclick="showPage('settings')">
             <i class="fas fa-cog"></i>
@@ -582,6 +711,13 @@
           <label for="exchangeRate">سعر الصرف</label>
           <input type="number" id="exchangeRate" placeholder="1.00" step="0.01" min="0">
         </div>
+        <div class="form-row">
+          <label for="operationType">العملية</label>
+          <select id="operationType">
+            <option value="multiply">ضرب (×)</option>
+            <option value="divide">قسمة (÷)</option>
+          </select>
+        </div>
         <button onclick="processTransfer()">تحويل</button>
       </div>
 
@@ -614,56 +750,102 @@
         <button onclick="addTransaction()">إضافة معاملة</button>
       </div>
 
+      <!-- صفحة الديون -->
+      <div id="debts" class="page">
+        <div class="page-header"><i class="fas fa-handshake"></i><h2 id="debts-header">الديون</h2></div>
+        
+        <div class="form-row">
+          <label for="debtType">نوع الدين</label>
+          <select id="debtType">
+            <option value="owed_to_me">له</option>
+            <option value="i_owe">عليه</option>
+          </select>
+        </div>
+        
+        <div class="form-row">
+          <label for="debtPerson">اسم الشخص</label>
+          <input type="text" id="debtPerson" placeholder="اسم المدين أو الدائن">
+        </div>
+        
+        <div class="form-row">
+          <label for="debtAmount">المبلغ</label>
+          <input type="number" id="debtAmount" placeholder="0.00" step="0.01" min="0">
+        </div>
+        
+        <div class="form-row">
+          <label for="debtCurrency">العملة</label>
+          <select id="debtCurrency">
+            <option value="SDG">جنيه سوداني (SDG)</option>
+            <option value="USD">دولار أمريكي (USD)</option>
+            <option value="EUR">يورو (EUR)</option>
+          </select>
+        </div>
+        
+        <div class="form-row">
+          <label for="debtDescription">الوصف</label>
+          <input type="text" id="debtDescription" placeholder="وصف الدين">
+        </div>
+        
+        <div class="form-row">
+          <label for="debtDate">تاريخ الدين</label>
+          <input type="date" id="debtDate">
+        </div>
+        
+        <button onclick="addDebt()">إضافة دين</button>
+        
+        <div id="debts-list" class="debt-records-container" style="margin-top: 20px;">
+          <!-- سيتم عرض الديون هنا -->
+        </div>
+      </div>
+
       <!-- صفحة كل المعاملات -->
       <div id="transactions" class="page">
         <div class="page-header"><i class="fas fa-list"></i><h2 id="transactions-header">كل المعاملات</h2></div>
         
-        <!-- فلاتر البحث -->
-        <div class="search-filters">
-          <div class="filter-row">
-            <div class="filter-group">
-              <label>نوع المعاملة</label>
-              <select id="filter-type" onchange="applyFilters()">
-                <option value="">الكل</option>
-                <option value="income">وارد</option>
-                <option value="expense">صادر</option>
-                <option value="transfer">تحويل</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label>العملة</label>
-              <select id="filter-currency" onchange="applyFilters()">
-                <option value="">الكل</option>
-                <option value="SDG">جنيه سوداني</option>
-                <option value="USD">دولار أمريكي</option>
-                <option value="EUR">يورو</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label>من تاريخ</label>
-              <input type="date" id="filter-date-from" onchange="applyFilters()">
-            </div>
-            <div class="filter-group">
-              <label>إلى تاريخ</label>
-              <input type="date" id="filter-date-to" onchange="applyFilters()">
-            </div>
+        <!-- فلاتر البحث المختصرة -->
+        <div class="compact-filters">
+          <button class="filter-toggle-btn" onclick="toggleFilters()">
+            <i class="fas fa-filter"></i>
+            <span>فلترة</span>
+            <i class="fas fa-chevron-down" id="filter-chevron"></i>
+          </button>
+          
+          <div class="quick-filters">
+            <select id="filter-type" onchange="applyFilters()" class="compact-select">
+              <option value="">كل الأنواع</option>
+              <option value="income">وارد</option>
+              <option value="expense">صادر</option>
+              <option value="transfer">تحويل</option>
+            </select>
+            
+            <select id="filter-currency" onchange="applyFilters()" class="compact-select">
+              <option value="">كل العملات</option>
+              <option value="SDG">SDG</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+            
+            <input type="text" id="filter-description" placeholder="بحث..." oninput="applyFilters()" class="compact-input">
           </div>
-          <div class="filter-row">
-            <div class="filter-group">
-              <label>البحث في الوصف</label>
-              <input type="text" id="filter-description" placeholder="ابحث في الوصف..." oninput="applyFilters()">
-            </div>
-            <div class="filter-group">
-              <label>المبلغ الأدنى</label>
-              <input type="number" id="filter-amount-min" placeholder="0" step="0.01" onchange="applyFilters()">
-            </div>
-            <div class="filter-group">
-              <label>المبلغ الأعلى</label>
-              <input type="number" id="filter-amount-max" placeholder="1000" step="0.01" onchange="applyFilters()">
-            </div>
-            <div class="filter-group">
-              <label>&nbsp;</label>
-              <button onclick="clearFilters()">مسح الفلاتر</button>
+          
+          <div class="advanced-filters" id="advanced-filters" style="display: none;">
+            <div class="advanced-row">
+              <div class="advanced-group">
+                <label>من تاريخ</label>
+                <input type="date" id="filter-date-from" onchange="applyFilters()" class="compact-date">
+              </div>
+              <div class="advanced-group">
+                <label>إلى تاريخ</label>
+                <input type="date" id="filter-date-to" onchange="applyFilters()" class="compact-date">
+              </div>
+              <div class="advanced-group">
+                <label>المبلغ من</label>
+                <input type="number" id="filter-amount-min" placeholder="0" step="0.01" onchange="applyFilters()" class="compact-number">
+              </div>
+              <div class="advanced-group">
+                <label>المبلغ إلى</label>
+                <input type="number" id="filter-amount-max" placeholder="∞" step="0.01" onchange="applyFilters()" class="compact-number">
+              </div>
             </div>
           </div>
         </div>
@@ -712,84 +894,71 @@
       <div id="settings" class="page">
         <div class="page-header"><i class="fas fa-cog"></i><h2 id="settings-header">الإعدادات</h2></div>
         
-        <!-- تبويبات الإعدادات -->
-        <div class="tabs">
-          <div class="tab-buttons">
-            <button class="tab-button active" onclick="showSettingsTab('account')">الحساب</button>
-            <button class="tab-button" onclick="showSettingsTab('database')">قاعدة البيانات</button>
-            <button class="tab-button" onclick="showSettingsTab('interface')">الواجهة</button>
-            <button class="tab-button" onclick="showSettingsTab('currencies')">العملات</button>
-          </div>
-        </div>
-
-        <!-- تبويب الحساب -->
-        <div id="account-tab" class="tab-content active">
-          <h3>معلومات الحساب</h3>
-          <div class="form-row">
-            <label>البريد الإلكتروني</label>
-            <input type="email" id="user-email" readonly>
-          </div>
-          <div class="form-row">
-            <label>الاسم</label>
-            <input type="text" id="user-name" readonly>
-          </div>
-          <button class="btn-danger" onclick="handleLogout()">تسجيل الخروج</button>
-        </div>
-
-        <!-- تبويب قاعدة البيانات -->
-        <div id="database-tab" class="tab-content">
-          <h3>إدارة البيانات</h3>
-          <button class="btn-success" onclick="exportData()">تصدير البيانات</button>
-          <button class="btn-danger" onclick="resetAllData()">إعادة ضبط جميع البيانات</button>
-        </div>
-
-        <!-- تبويب الواجهة -->
-        <div id="interface-tab" class="tab-content">
-          <h3>إعدادات الواجهة</h3>
-          <div class="form-row">
-            <label>اللغة</label>
-            <select id="language-select" onchange="changeLanguage()">
-              <option value="ar">العربية</option>
-              <option value="en">English</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>المظهر</label>
-            <select id="theme-select" onchange="changeTheme()">
-              <option value="light">فاتح</option>
-              <option value="dark">مظلم</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- تبويب العملات -->
-        <div id="currencies-tab" class="tab-content">
-          <h3>إدارة العملات</h3>
-          <div class="form-row">
-            <label>العملة الأساسية</label>
-            <select id="default-currency-select" onchange="changeDefaultCurrency()">
-              <option value="SDG">جنيه سوداني (SDG)</option>
-              <option value="USD">دولار أمريكي (USD)</option>
-              <option value="EUR">يورو (EUR)</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>إضافة عملة جديدة</label>
-            <select id="currency-select">
-              <option value="SDG">جنيه سوداني (SDG)</option>
-              <option value="USD">دولار أمريكي (USD)</option>
-              <option value="EUR">يورو (EUR)</option>
-              <option value="GBP">جنيه إسترليني (GBP)</option>
-              <option value="JPY">ين ياباني (JPY)</option>
-              <option value="SAR">ريال سعودي (SAR)</option>
-              <option value="AED">درهم إماراتي (AED)</option>
-            </select>
-          </div>
-          <button onclick="addCurrency()">إضافة عملة</button>
+        <!-- أزرار الإعدادات المتتالية -->
+        <div style="display: flex; flex-direction: column; gap: 15px;">
           
-          <h4>العملات المتاحة</h4>
-          <div id="currencies-list"></div>
+          <!-- 1. اللغة -->
+          <button class="btn-wide" onclick="toggleLanguage()" style="background: var(--primary); display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <i class="fas fa-language"></i>
+              <span>اللغة</span>
+            </div>
+            <span style="font-size: 12px; opacity: 0.8;">العربية / English</span>
+          </button>
+
+          <!-- 2. الوضع الداكن -->
+          <button class="btn-wide" onclick="toggleTheme()" style="background: var(--secondary); display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <i class="fas fa-moon" id="settings-theme-icon"></i>
+              <span>الوضع الداكن</span>
+            </div>
+            <span style="font-size: 12px; opacity: 0.8;" id="theme-status">فاتح</span>
+          </button>
+
+          <!-- 3. الإحصائيات -->
+          <button class="btn-wide" onclick="showPage('statistics')" style="background: var(--accent); color: var(--dark); display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-chart-bar"></i>
+            <span>الإحصائيات</span>
+          </button>
+
+          <!-- 4. معلومات الحساب -->
+          <button class="btn-wide" onclick="showAccountInfo()" style="background: #17a2b8; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-user"></i>
+            <span>معلومات الحساب</span>
+          </button>
+
+          <!-- 5. تسجيل الخروج -->
+          <button class="btn-wide btn-danger" onclick="handleLogout()" style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>تسجيل الخروج</span>
+          </button>
+
         </div>
+      </div>
+
+      <!-- صفحة معلومات الحساب -->
+      <div id="account-info" class="page">
+        <div class="page-header"><i class="fas fa-user"></i><h2>معلومات الحساب</h2></div>
+        
+        <div class="form-row">
+          <label>تعديل الاسم</label>
+          <input type="text" id="user-name" placeholder="الاسم الجديد">
+        </div>
+        <div class="form-row">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="user-email" readonly placeholder="غير قابل للتعديل" style="background: #f8f9fa; cursor: not-allowed;">
+        </div>
+        <div class="form-row">
+          <label>تغيير كلمة المرور</label>
+          <input type="password" id="new-password" placeholder="كلمة المرور الجديدة">
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button onclick="updateProfile()" class="btn-success" style="flex: 1;">حفظ التغييرات</button>
+          <button onclick="exportData()" class="btn-success" style="flex: 1;">تصدير البيانات</button>
+        </div>
+      </div>
+
       </div>
     </div>
   </div>
@@ -869,10 +1038,16 @@
     }
 
     function formatCurrency(amount, currency) {
+      // تحديد عدد الأرقام العشرية بناءً على القيمة
+      const hasDecimals = amount % 1 !== 0;
+      const minimumFractionDigits = hasDecimals ? 2 : 0;
+      const maximumFractionDigits = 2;
+      
       return new Intl.NumberFormat('ar-SA', {
         style: 'currency',
         currency: currency,
-        minimumFractionDigits: 2
+        minimumFractionDigits: minimumFractionDigits,
+        maximumFractionDigits: maximumFractionDigits
       }).format(amount);
     }
 
@@ -1004,6 +1179,7 @@
     function handleLogin() {
       const email = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
+      const rememberMe = document.getElementById('remember-me').checked;
       
       // التحقق من الحقول الفارغة
       if (!email || !password) {
@@ -1014,7 +1190,7 @@
       // التحقق من صحة البريد الإلكتروني
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        showNotification('يرجى إدخال بريد إلكتروني صحيح', 'error');
+        showNotification('يرجى إدخال بريد إلكتروني صحيح (مثال: user@example.com)', 'error');
         return;
       }
 
@@ -1026,10 +1202,19 @@
       const loginLoader = document.getElementById('login-loader');
       if (loginLoader) loginLoader.style.display = 'block';
 
-      auth.signInWithEmailAndPassword(email, password)
+      // تعيين نوع الاستمرارية بناءً على خيار "حفظ تسجيل الدخول"
+      const persistence = rememberMe ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION;
+      
+      auth.setPersistence(persistence)
+        .then(() => {
+          return auth.signInWithEmailAndPassword(email, password);
+        })
         .then(userCredential => {
           currentUser = userCredential.user;
-          showNotification('مرحباً بك! تم تسجيل الدخول بنجاح', 'success');
+          const welcomeMessage = rememberMe ? 
+            'مرحباً بك! تم تسجيل الدخول بنجاح وسيتم حفظ جلستك' : 
+            'مرحباً بك! تم تسجيل الدخول بنجاح';
+          showNotification(welcomeMessage, 'success');
           loadUserData();
           showApp();
         })
@@ -2111,6 +2296,27 @@
       showNotification('تم تغيير المظهر بنجاح');
     }
 
+    // دالة إظهار وإخفاء الفلاتر المتقدمة
+    function toggleFilters() {
+      const advancedFilters = document.getElementById('advanced-filters');
+      const toggleBtn = document.querySelector('.filter-toggle-btn');
+      const chevron = document.getElementById('filter-chevron');
+      
+      if (!advancedFilters || !toggleBtn || !chevron) return;
+      
+      const isVisible = advancedFilters.style.display !== 'none';
+      
+      if (isVisible) {
+        advancedFilters.style.display = 'none';
+        toggleBtn.classList.remove('active');
+        chevron.style.transform = 'rotate(0deg)';
+      } else {
+        advancedFilters.style.display = 'block';
+        toggleBtn.classList.add('active');
+        chevron.style.transform = 'rotate(180deg)';
+      }
+    }
+
     function toggleTheme() {
       const currentTheme = document.body.getAttribute('data-theme');
       const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -2192,6 +2398,65 @@
             currentUser = user;
             loadUserData();
             showApp();
+    // دالة عرض معلومات الحساب
+    function showAccountInfo() {
+      showPage('account-info');
+      
+      // تحديث حقول معلومات الحساب
+      if (currentUser) {
+        const userNameInput = document.getElementById('user-name');
+        const userEmailInput = document.getElementById('user-email');
+        
+        if (userNameInput) {
+          userNameInput.value = currentUser.displayName || '';
+        }
+        if (userEmailInput) {
+          userEmailInput.value = currentUser.email || '';
+        }
+      }
+    }
+
+    // دالة تحديث حالة المظهر في الإعدادات
+    function updateThemeStatus() {
+      const themeStatus = document.getElementById('theme-status');
+      const settingsThemeIcon = document.getElementById('settings-theme-icon');
+      const currentTheme = document.body.getAttribute('data-theme');
+      
+      if (themeStatus) {
+        themeStatus.textContent = currentTheme === 'dark' ? 'مظلم' : 'فاتح';
+      }
+      
+      if (settingsThemeIcon) {
+        settingsThemeIcon.className = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+      }
+    }
+
+    // تحديث دالة toggleTheme لتحديث حالة المظهر
+    const originalToggleTheme = toggleTheme;
+    toggleTheme = function() {
+      if (originalToggleTheme) {
+        originalToggleTheme();
+      } else {
+        // تنفيذ تبديل المظهر الأساسي
+        const currentTheme = document.body.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.body.setAttribute('data-theme', newTheme);
+        
+        const themeIcon = document.getElementById('theme-icon');
+        if (themeIcon) {
+          themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
+      }
+      
+      // تحديث حالة المظهر في الإعدادات
+      updateThemeStatus();
+      
+      // حفظ التفضيل
+      if (currentUser) {
+        saveUserData();
+      }
+    };
+
           } else {
             currentUser = null;
             showAuth();
@@ -2220,6 +2485,7 @@
       // تهيئة الفلاتر
       setTimeout(() => {
         updateCurrencySelects();
+        updateThemeStatus(); // تحديث حالة المظهر عند التحميل
       }, 1000);
       
       // إضافة مستمع للنقر خارج النافذة المنبثقة لإغلاقها
