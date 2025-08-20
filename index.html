@@ -569,12 +569,12 @@
         <div class="form-row" style="text-align:left;margin:-6px 0 10px">
           <a href="#" onclick="handlePasswordReset(event)" class="auth-switch">نسيت كلمة المرور؟</a>
         </div>
-        <button type="button" id="login-button">تسجيل الدخول</button>
+        <button type="button" onclick="handleLogin()">تسجيل الدخول</button>
         <div class="loader" id="login-loader"></div>
 
         <div class="or-sep">أو</div>
 
-        <button type="button" class="google-btn" id="google-login-button">
+        <button type="button" class="google-btn" onclick="signInWithGoogle()">
           <i class="fab fa-google"></i> المتابعة باستخدام Google
         </button>
         <div class="loader" id="google-loader"></div>
@@ -608,12 +608,12 @@
             <div>• 8 أحرف على الأقل</div>
           </div>
         </div>
-        <button type="button" id="signup-button">إنشاء حساب</button>
+        <button type="button" onclick="handleSignup()">إنشاء حساب</button>
         <div class="loader" id="signup-loader"></div>
 
         <div class="or-sep">أو</div>
 
-        <button type="button" class="google-btn" id="google-signup-button">
+        <button type="button" class="google-btn" onclick="signInWithGoogle()">
           <i class="fab fa-google"></i> المتابعة باستخدام Google
         </button>
         <div class="loader" id="google-loader-signup"></div>
@@ -2440,6 +2440,31 @@
 
     // تهيئة التطبيق
     document.addEventListener('DOMContentLoaded', function() {
+      // ربط أحداث أزرار تسجيل الدخول
+      const loginButton = document.querySelector('button[onclick="handleLogin()"]');
+      if (loginButton) {
+        loginButton.addEventListener('click', function(e) {
+          e.preventDefault();
+          handleLogin();
+        });
+      }
+
+      const googleLoginButtons = document.querySelectorAll('button[onclick="signInWithGoogle()"]');
+      googleLoginButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          signInWithGoogle();
+        });
+      });
+
+      const signupButton = document.querySelector('button[onclick="handleSignup()"]');
+      if (signupButton) {
+        signupButton.addEventListener('click', function(e) {
+          e.preventDefault();
+          handleSignup();
+        });
+      }
+
       // مراقبة حالة المصادقة
       if (firebaseInitialized && auth) {
         auth.onAuthStateChanged(user => {
@@ -2578,31 +2603,6 @@
       if (appContainer) appContainer.style.display = 'none';
       if (authContainer) authContainer.style.display = 'flex';
       
-      // ربط أحداث أزرار المصادقة
-      const loginButton = document.getElementById('login-button');
-      if (loginButton) {
-        loginButton.addEventListener('click', handleLogin);
-        console.log('Login button event listener added');
-      }
-
-      const signupButton = document.getElementById('signup-button');
-      if (signupButton) {
-        signupButton.addEventListener('click', handleSignup);
-        console.log('Signup button event listener added');
-      }
-
-      const googleLoginButton = document.getElementById('google-login-button');
-      if (googleLoginButton) {
-        googleLoginButton.addEventListener('click', signInWithGoogle);
-        console.log('Google login button event listener added');
-      }
-
-      const googleSignupButton = document.getElementById('google-signup-button');
-      if (googleSignupButton) {
-        googleSignupButton.addEventListener('click', signInWithGoogle);
-        console.log('Google signup button event listener added');
-      }
-      
       // مراقبة حالة المصادقة
       if (firebaseInitialized && auth) {
         auth.onAuthStateChanged(user => {
@@ -2656,3 +2656,37 @@
         });
       }
     });
+
+    }
+      
+      saveUserData();
+      updateThemeStatus();
+    }
+
+  </script>
+
+  <!-- نافذة منبثقة لإدارة الرصيد -->
+  <div id="balance-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 id="balance-modal-title">إدارة الرصيد</h3>
+      <div class="form-row">
+        <label for="balance-currency">العملة</label>
+        <select id="balance-currency"></select>
+      </div>
+      <div class="form-row">
+        <label for="balance-amount">المبلغ</label>
+        <input type="number" id="balance-amount" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-row">
+        <label for="balance-description">الوصف (اختياري)</label>
+        <input type="text" id="balance-description" placeholder="وصف العملية">
+      </div>
+      <div class="modal-buttons">
+        <button onclick="closeBalanceModal()">إلغاء</button>
+        <button id="balance-confirm-btn" onclick="processBalanceChange()">تأكيد</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
