@@ -569,12 +569,12 @@
         <div class="form-row" style="text-align:left;margin:-6px 0 10px">
           <a href="#" onclick="handlePasswordReset(event)" class="auth-switch">نسيت كلمة المرور؟</a>
         </div>
-        <button type="button" onclick="handleLogin()">تسجيل الدخول</button>
+        <button type="button" id="login-button">تسجيل الدخول</button>
         <div class="loader" id="login-loader"></div>
 
         <div class="or-sep">أو</div>
 
-        <button type="button" class="google-btn" onclick="signInWithGoogle()">
+        <button type="button" class="google-btn" id="google-login-button">
           <i class="fab fa-google"></i> المتابعة باستخدام Google
         </button>
         <div class="loader" id="google-loader"></div>
@@ -608,12 +608,12 @@
             <div>• 8 أحرف على الأقل</div>
           </div>
         </div>
-        <button type="button" onclick="handleSignup()">إنشاء حساب</button>
+        <button type="button" id="signup-button">إنشاء حساب</button>
         <div class="loader" id="signup-loader"></div>
 
         <div class="or-sep">أو</div>
 
-        <button type="button" class="google-btn" onclick="signInWithGoogle()">
+        <button type="button" class="google-btn" id="google-signup-button">
           <i class="fab fa-google"></i> المتابعة باستخدام Google
         </button>
         <div class="loader" id="google-loader-signup"></div>
@@ -1210,11 +1210,24 @@
           return auth.signInWithEmailAndPassword(email, password);
         })
         .then(userCredential => {
+          // التحقق من صحة المستخدم
+          if (!userCredential || !userCredential.user) {
+            throw new Error('فشل في تسجيل الدخول - بيانات المستخدم غير صحيحة');
+          }
+          
           currentUser = userCredential.user;
+          console.log('Login successful for:', currentUser.email);
+          
           const welcomeMessage = rememberMe ? 
             'مرحباً بك! تم تسجيل الدخول بنجاح وسيتم حفظ جلستك' : 
             'مرحباً بك! تم تسجيل الدخول بنجاح';
           showNotification(welcomeMessage, 'success');
+          
+          // تنظيف الحقول
+          document.getElementById('login-email').value = '';
+          document.getElementById('login-password').value = '';
+          document.getElementById('remember-me').checked = false;
+          
           loadUserData();
           showApp();
         })
@@ -1249,6 +1262,10 @@
           }
           
           showNotification(errorMessage, 'error');
+          
+          // التأكد من عدم فتح التطبيق في حالة الخطأ
+          currentUser = null;
+          showAuth();
         })
         .finally(() => {
           const loginLoader = document.getElementById('login-loader');
@@ -2152,8 +2169,21 @@
       const ctx = document.getElementById('currency-chart');
       if (!ctx) return;
       
-      const labels = currencies;
-      const data = currencies.map(currency => balances[currency] || 0);
+      // استخدام العملات الفعلية والأرصدة الحقيقية
+      const actualCurrencies = Object.keys(balances).filter(currency => balances[currency] > 0);
+      const actualBalances = actualCurrencies.map(currency => balances[currency]);
+      
+      // إذا لم توجد أرصدة، عرض رسالة
+      if (actualCurrencies.length === 0) {
+        ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+        const context = ctx.getContext('2d');
+        context.font = '16px Tajawal';
+        context.fillStyle = '#666';
+        context.textAlign = 'center';
+        context.fillText('لا توجد أرصدة لعرضها', ctx.width / 2, ctx.height / 2);
+        return;
+      }
+      
       const colors = [
         'rgba(44, 120, 108, 0.8)',
         'rgba(255, 209, 102, 0.8)',
@@ -2168,10 +2198,10 @@
         new Chart(ctx, {
           type: 'doughnut',
           data: {
-            labels: labels.map(currency => getCurrencyName(currency)),
+            labels: actualCurrencies.map(currency => getCurrencyName(currency)),
             datasets: [{
-              data: data,
-              backgroundColor: colors.slice(0, labels.length),
+              data: actualBalances,
+              backgroundColor: colors.slice(0, actualCurrencies.length),
               borderWidth: 2
             }]
           },
@@ -2338,11 +2368,30 @@
       // منطق تبديل اللغة
       currentLanguage = currentLanguage === 'ar' ? 'en' : 'ar';
       
-      const languageSelect = document.getElementById('language-select');
-      if (languageSelect) languageSelect.value = currentLanguage;
+      // تحديث اتجاه الصفحة ولغتها
+      const html = document.documentElement;
+      if (currentLanguage === 'ar') {
+        html.setAttribute('lang', 'ar');
+        html.setAttribute('dir', 'rtl');
+      } else {
+        html.setAttribute('lang', 'en');
+        html.setAttribute('dir', 'ltr');
+      }
+      
+      // تحديث نص زر اللغة
+      const languageBtn = document.querySelector('.header-btn:nth-child(2)');
+      if (languageBtn) {
+        languageBtn.textContent = currentLanguage === 'ar' ? 'EN' : 'ع';
+      }
+      
+      // تحديث نص زر اللغة في الإعدادات
+      const settingsLanguageBtn = document.querySelector('[onclick="toggleLanguage()"]');
+      if (settingsLanguageBtn) {
+        settingsLanguageBtn.innerHTML = `<i class="fas fa-language"></i> اللغة ${currentLanguage === 'ar' ? 'العربية / English' : 'English / العربية'}`;
+      }
       
       saveUserData();
-      showNotification('Language changed successfully / تم تغيير اللغة بنجاح');
+      showNotification(currentLanguage === 'ar' ? 'تم تغيير اللغة إلى العربية' : 'Language changed to English');
     }
 
     function exportData() {
@@ -2416,6 +2465,80 @@
       }
     }
 
+    // دالة تحديث معلومات الحساب
+    function updateProfile() {
+      if (!currentUser) {
+        showNotification('لا يوجد مستخدم مسجل دخول', 'error');
+        return;
+      }
+
+      const newName = document.getElementById('user-name').value.trim();
+      const newPassword = document.getElementById('new-password').value;
+
+      if (!newName && !newPassword) {
+        showNotification('يرجى إدخال الاسم الجديد أو كلمة المرور الجديدة', 'error');
+        return;
+      }
+
+      let updatePromises = [];
+
+      // تحديث الاسم
+      if (newName && newName !== currentUser.displayName) {
+        if (newName.length < 2) {
+          showNotification('يجب أن يكون الاسم مكوناً من حرفين على الأقل', 'error');
+          return;
+        }
+        updatePromises.push(
+          currentUser.updateProfile({ displayName: newName })
+            .then(() => showNotification('تم تحديث الاسم بنجاح'))
+        );
+      }
+
+      // تحديث كلمة المرور
+      if (newPassword) {
+        if (!validatePassword(newPassword)) {
+          showNotification('كلمة المرور يجب أن تحتوي على: حرف كبير، حرف صغير، رقم، رمز خاص، وأن تكون 8 أحرف على الأقل', 'error');
+          return;
+        }
+        updatePromises.push(
+          currentUser.updatePassword(newPassword)
+            .then(() => {
+              showNotification('تم تحديث كلمة المرور بنجاح');
+              document.getElementById('new-password').value = '';
+            })
+        );
+      }
+
+      // تنفيذ التحديثات
+      Promise.all(updatePromises)
+        .then(() => {
+          if (updatePromises.length > 1) {
+            showNotification('تم تحديث معلومات الحساب بنجاح');
+          }
+          saveUserData();
+        })
+        .catch(error => {
+          console.error('Profile update error:', error);
+          let errorMessage = 'حدث خطأ أثناء تحديث معلومات الحساب';
+          
+          switch(error.code) {
+            case 'auth/weak-password':
+              errorMessage = 'كلمة المرور ضعيفة جداً. يرجى استخدام كلمة مرور أقوى.';
+              break;
+            case 'auth/requires-recent-login':
+              errorMessage = 'يتطلب تسجيل دخول حديث لتحديث كلمة المرور. يرجى تسجيل الخروج والدخول مرة أخرى.';
+              break;
+            case 'auth/network-request-failed':
+              errorMessage = 'مشكلة في الاتصال بالإنترنت. يرجى المحاولة لاحقاً.';
+              break;
+            default:
+              errorMessage = `خطأ في التحديث: ${error.message || 'يرجى المحاولة لاحقاً'}`;
+          }
+          
+          showNotification(errorMessage, 'error');
+        });
+    }
+
     // دالة تحديث حالة المظهر في الإعدادات
     function updateThemeStatus() {
       const themeStatus = document.getElementById('theme-status');
@@ -2446,24 +2569,59 @@
         if (themeIcon) {
           themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
         }
-      }
+    // تهيئة التطبيق
+    document.addEventListener('DOMContentLoaded', function() {
+      // التأكد من إخفاء التطبيق في البداية
+      const appContainer = document.getElementById('app-container');
+      const authContainer = document.getElementById('auth-container');
       
-      // تحديث حالة المظهر في الإعدادات
-      updateThemeStatus();
+      if (appContainer) appContainer.style.display = 'none';
+      if (authContainer) authContainer.style.display = 'flex';
       
-      // حفظ التفضيل
-      if (currentUser) {
-        saveUserData();
+      // ربط أحداث أزرار المصادقة
+      const loginButton = document.getElementById('login-button');
+      if (loginButton) {
+        loginButton.addEventListener('click', handleLogin);
+        console.log('Login button event listener added');
       }
-    };
 
+      const signupButton = document.getElementById('signup-button');
+      if (signupButton) {
+        signupButton.addEventListener('click', handleSignup);
+        console.log('Signup button event listener added');
+      }
+
+      const googleLoginButton = document.getElementById('google-login-button');
+      if (googleLoginButton) {
+        googleLoginButton.addEventListener('click', signInWithGoogle);
+        console.log('Google login button event listener added');
+      }
+
+      const googleSignupButton = document.getElementById('google-signup-button');
+      if (googleSignupButton) {
+        googleSignupButton.addEventListener('click', signInWithGoogle);
+        console.log('Google signup button event listener added');
+      }
+      
+      // مراقبة حالة المصادقة
+      if (firebaseInitialized && auth) {
+        auth.onAuthStateChanged(user => {
+          if (user && user.emailVerified !== false) {
+            // التحقق من صحة المستخدم
+            currentUser = user;
+            console.log('User authenticated:', user.email);
+            loadUserData();
+            showApp();
           } else {
+            // إذا لم يكن هناك مستخدم أو المستخدم غير مؤكد
+            console.log('No authenticated user or unverified email');
             currentUser = null;
             showAuth();
           }
         });
       } else {
         // إذا لم يكن Firebase متاحاً، عرض واجهة المصادقة مع رسالة خطأ
+        console.error('Firebase not initialized');
         showAuth();
         showNotification('Firebase غير متاح. يرجى التحقق من الإعدادات.', 'error');
       }
@@ -2498,7 +2656,3 @@
         });
       }
     });
-  </script>
-</body>
-</html>
-
